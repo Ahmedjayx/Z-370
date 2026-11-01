@@ -166,6 +166,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
     // Back never closes the probe: only its X does, so a stray press can't end a recording.
     BackHandler { drawer = false; assignRole = null; settings = false }
 
+    val car = rememberCarState()
     BoxWithConstraints(Modifier.fillMaxSize().background(Z.Ground)) {
         // 1 dp == 1 px of the 1080-wide design, whatever the unit reports.
         val scale = constraints.maxWidth / 1080f
@@ -178,6 +179,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                 }
             }
             Home(
+                car = car,
                 accent = accent,
                 locationGranted = locationGranted,
                 resolved = resolved,
@@ -214,6 +216,8 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                 )
             }
             if (probe) ProbeScreen(accent = accent, onClose = { probe = false; Prefs.setProbeOpen(ctx, false) })
+            // Headlights on: dim everything to sit with the gauges at night. Draw-only, touches pass through.
+            if (car.night.value) Box(Modifier.fillMaxSize().background(Color(0x66000000)))
         }
     }
 }
@@ -222,6 +226,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
 
 @Composable
 fun Home(
+    car: CarState,
     accent: Color,
     locationGranted: Boolean,
     resolved: Map<Role, AppEntry?>,
@@ -243,7 +248,7 @@ fun Home(
         Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 24.dp, bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        StatusRow(now, onSettings)
+        StatusRow(now, car, onSettings)
         Row(
             Modifier.fillMaxWidth().height(440.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -253,14 +258,17 @@ fun Home(
             PodColumn("GPS SPEED", Modifier.weight(1.35f)) { SpeedPod(fix.speedKmh, accent) }
             PodColumn("CLOCK", Modifier.weight(1f)) { ClockPod(now, accent) }
         }
-        NavCard(resolved[Role.MAPS], accent, Modifier.weight(1f).fillMaxWidth(), { onRole(Role.MAPS) }, { onAssign(Role.MAPS) })
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            NavCard(resolved[Role.MAPS], accent, Modifier.fillMaxSize(), { onRole(Role.MAPS) }, { onAssign(Role.MAPS) })
+            if (car.driverDoor.value || car.passengerDoor.value) DoorAlert(car, accent, Modifier.fillMaxSize())
+        }
         MediaCard(media, accent, resolved[Role.MUSIC], { onRole(Role.MUSIC) })
         Dock(accent, onRole, onAssign, onApps)
     }
 }
 
 @Composable
-fun StatusRow(now: Long, onSettings: () -> Unit) {
+fun StatusRow(now: Long, car: CarState, onSettings: () -> Unit) {
     val ctx = LocalContext.current
     val timeFmt = if (DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm"
     val d = Date(now)
@@ -272,6 +280,25 @@ fun StatusRow(now: Long, onSettings: () -> Unit) {
         Spacer(Modifier.width(22.dp))
         T(SimpleDateFormat("EEE dd MMM", Locale.ENGLISH).format(d).uppercase(), 22, Z.Dim, spacing = 2f)
         Spacer(Modifier.weight(1f))
+        car.cabinC.value?.let { c ->
+            T("CABIN", 18, Z.Faint, spacing = 3f)
+            Spacer(Modifier.width(10.dp))
+            T("%.1f°".format(c), 30, Z.Silver, Condensed, FontWeight.Medium)
+            Spacer(Modifier.width(28.dp))
+        }
+        car.steeringDeg.value?.let { a ->
+            Canvas(Modifier.size(40.dp)) {
+                val c = center; val r = size.minDimension / 2f - 3f
+                drawCircle(Z.Dim, r, c, style = Stroke(3f))
+                rotate(a, c) {
+                    drawLine(Z.Dim, Offset(c.x - r, c.y), Offset(c.x + r, c.y), 3f)
+                    drawLine(Z.Dim, c, Offset(c.x, c.y + r), 3f)
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            T("%+d°".format(a.toInt()), 22, Z.Dim)
+            Spacer(Modifier.width(16.dp))
+        }
         Box(
             Modifier.size(72.dp).clip(CircleShape).clickable(onClick = onSettings),
             contentAlignment = Alignment.Center,
@@ -583,6 +610,49 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
             val ctx = LocalContext.current
             val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
             T("Version $ver", 20, Z.Faint)
+        }
+    }
+}
+
+@Composable
+fun DoorAlert(car: CarState, accent: Color, modifier: Modifier) {
+    val driver = car.driverDoor.value
+    val passenger = car.passengerDoor.value
+    Row(
+        modifier.clip(RoundedCornerShape(22.dp)).background(Color(0xF20A0B0D))
+            .border(2.dp, accent, RoundedCornerShape(22.dp)).padding(36.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(48.dp),
+    ) {
+        // Top view, nose up. Left-hand drive: driver door on the left.
+        Canvas(Modifier.width(220.dp).fillMaxHeight()) {
+            val w = size.width; val h = size.height
+            val bw = w * 0.62f; val bh = minOf(h * 0.92f, bw * 2.2f)
+            val left = (w - bw) / 2f; val top = (h - bh) / 2f
+            val line = Stroke(4f)
+            drawRoundRect(Z.Bezel, Offset(left, top), Size(bw, bh), androidx.compose.ui.geometry.CornerRadius(bw * 0.38f), style = line)
+            // glasshouse
+            drawRoundRect(Z.Dim, Offset(left + bw * 0.16f, top + bh * 0.30f), Size(bw * 0.68f, bh * 0.40f), androidx.compose.ui.geometry.CornerRadius(bw * 0.2f), style = Stroke(3f))
+            val dTop = top + bh * 0.34f; val dBot = top + bh * 0.58f
+            fun door(x: Float, open: Boolean, dir: Float) {
+                if (open) {
+                    drawLine(accent, Offset(x, dTop), Offset(x + dir * bw * 0.55f, dTop + (dBot - dTop) * 0.55f), 10f, StrokeCap.Round)
+                    drawCircle(accent, 8f, Offset(x, dTop))
+                } else drawLine(Z.Dim, Offset(x, dTop), Offset(x, dBot), 6f, StrokeCap.Round)
+            }
+            door(left, driver, -1f)
+            door(left + bw, passenger, 1f)
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            T("DOOR OPEN", 18, accent, spacing = 3f, weight = FontWeight.Medium)
+            T(
+                when {
+                    driver && passenger -> "Both doors"
+                    driver -> "Driver door"
+                    else -> "Passenger door"
+                },
+                48, Z.Bright, Condensed, FontWeight.Medium,
+            )
         }
     }
 }
