@@ -366,4 +366,3 @@ fun Pill(label: String, selected: Boolean = false, accent: Color = Z.Silver, onC
     ) { T(label, 20, if (selected) Z.Bright else Z.Silver, spacing = 2f) }
 }
 
-private fun Modifier.clip(RoundedCornerShape(16.dp)) = this.then(androidx.compose.ui.draw.clip(RoundedCornerShape(16.dp)))
