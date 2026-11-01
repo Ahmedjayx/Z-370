@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -613,7 +614,18 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
                 androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
             ) { uri -> if (uri != null) Updater.install(ctx, uri) }
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Pill("INSTALL UPDATE FROM FILE") {
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                Pill(if (GithubUpdate.busy.value) "UPDATING…" else "UPDATE FROM GITHUB") {
+                    if (!ctx.packageManager.canRequestPackageInstalls()) {
+                        try {
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + ctx.packageName))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        } catch (_: Exception) {}
+                    } else scope.launch { GithubUpdate.run(ctx) }
+                }
+                Pill("FROM FILE") {
                     if (!ctx.packageManager.canRequestPackageInstalls()) {
                         try {
                             ctx.startActivity(
@@ -629,6 +641,7 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
                     } catch (_: Exception) {}
                 }
             }
+            if (GithubUpdate.status.value.isNotEmpty()) T(GithubUpdate.status.value, 20, Z.Dim)
             Pill(if (OfflineMap.busy.value) "DOWNLOADING UAE MAP…" else "DOWNLOAD UAE OFFLINE MAP") { OfflineMap.start(ctx) }
             if (OfflineMap.status.value.isNotEmpty()) T(OfflineMap.status.value, 20, Z.Dim)
             Pill("OPEN CAN PROBE", onClick = onProbe)

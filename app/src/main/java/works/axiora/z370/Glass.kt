@@ -97,14 +97,9 @@ fun GlassHome(
     onApps: () -> Unit,
     onSettings: () -> Unit,
 ) {
-    val ctx = LocalContext.current
-    val now by produceState(System.currentTimeMillis()) {
-        while (true) {
-            value = System.currentTimeMillis()
-            delay(1000 - value % 1000)
-        }
-    }
-    val fix by rememberGpsFix(locationGranted)
+    // Each live value is read inside its own small composable, so a clock tick, a GPS fix or
+    // a steering frame redraws only that piece, never the whole screen with the map in it.
+    val fixState = rememberGpsFix(locationGranted)
     val media = rememberMedia()
 
     Box(Modifier.fillMaxSize()) {
@@ -115,18 +110,9 @@ fun GlassHome(
         ) {
             // Header: big clock, date, settings.
             Row(Modifier.fillMaxWidth().height(110.dp), verticalAlignment = Alignment.CenterVertically) {
-                val d = Date(now)
-                val fmt = if (android.text.format.DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm"
-                T(SimpleDateFormat(fmt, Locale.getDefault()).format(d), 100, Z.Bright, Condensed, FontWeight.Light)
-                Spacer(Modifier.width(22.dp))
-                T(SimpleDateFormat("EEEE · dd MMM", Locale.ENGLISH).format(d).uppercase(), 24, Color(0xFFB8BDC5), spacing = 3f)
+                HeaderClock()
                 Spacer(Modifier.weight(1f))
-                car.steeringDeg.value?.let { a ->
-                    if (kotlin.math.abs(a) >= 3f) {
-                        T("%+d°".format(a.toInt()), 24, Color(0xFFB8BDC5))
-                        Spacer(Modifier.width(24.dp))
-                    }
-                }
+                SteeringReadout(car)
                 Box(Modifier.size(80.dp).glass(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
                     LineIcon("M4 6h16 M4 12h16 M4 18h16 M8 4v4 M16 10v4 M10 16v4", Z.Bright, 34.dp)
                 }
@@ -134,24 +120,9 @@ fun GlassHome(
 
             // Tiles: cabin, speed, doors.
             Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Tile("CABIN", Modifier.weight(1f)) {
-                    val c = car.cabinC.value
-                    T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
-                    Bar(c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
-                }
-                Tile("SPEED", Modifier.weight(1f)) {
-                    T(fix.speedKmh?.toString() ?: "--", 120, Z.Bright, Condensed, FontWeight.Light)
-                    T("KM/H", 20, Color(0xFFC3C8CF), spacing = 4f)
-                }
-                Tile("DOORS", Modifier.weight(1f)) {
-                    DoorGlyph(car, accent, Modifier.align(Alignment.CenterHorizontally).width(90.dp).height(140.dp))
-                    val open = listOfNotNull(
-                        if (car.driverDoor.value) "Driver" else null,
-                        if (car.passengerDoor.value) "Passenger" else null,
-                        if (car.boot.value) "Boot" else null,
-                    )
-                    T(if (open.isEmpty()) "All closed" else open.joinToString(" · ") + " open", 20, if (open.isEmpty()) Color(0xFFC3C8CF) else accent)
-                }
+                Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent) }
+                Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState) }
+                Tile("DOORS", Modifier.weight(1f)) { DoorsTileBody(car, accent) }
             }
 
             // Live map with a glass navigation bar.
@@ -160,7 +131,7 @@ fun GlassHome(
                     .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp))
                     .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
             ) {
-                LiveMap(fix, accent, Modifier.fillMaxSize())
+                LiveMap(fixState, accent, Modifier.fillMaxSize())
                 Row(
                     Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
                         .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0x55050506)).padding(horizontal = 30.dp),
@@ -258,7 +229,7 @@ private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> tc.skipToPrevious()
             KeyEvent.KEYCODE_MEDIA_NEXT -> tc.skipToNext()
             else -> if (playing) tc.pause() else tc.play()
-        } else sendMediaKey(ctx, code)
+        } else if (car.btTitle.value != null) BtControl.send(ctx, code) else sendMediaKey(ctx, code)
     }
     Row(
         Modifier.fillMaxWidth().height(210.dp).glass(RoundedCornerShape(52.dp)).padding(horizontal = 32.dp),
@@ -294,3 +265,56 @@ private fun GlassButton(size: Int, onClick: () -> Unit, strength: Float = 1f, co
     Box(Modifier.size(size.dp).glass(CircleShape, strength).clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
+
+@Composable
+private fun HeaderClock() {
+    val ctx = LocalContext.current
+    val now by produceState(System.currentTimeMillis()) {
+        while (true) {
+            value = System.currentTimeMillis()
+            delay(1000 - value % 1000)
+        }
+    }
+    val d = Date(now)
+    val fmt = if (android.text.format.DateFormat.is24HourFormat(ctx)) "HH:mm" else "h:mm"
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        T(SimpleDateFormat(fmt, Locale.getDefault()).format(d), 100, Z.Bright, Condensed, FontWeight.Light)
+        Spacer(Modifier.width(22.dp))
+        T(SimpleDateFormat("EEEE · dd MMM", Locale.ENGLISH).format(d).uppercase(), 24, Color(0xFFB8BDC5), spacing = 3f)
+    }
+}
+
+@Composable
+private fun SteeringReadout(car: CarState) {
+    val a = car.steeringDeg.value ?: return
+    // Whole degrees only, so tiny wobble while driving does not redraw anything.
+    val deg = a.toInt()
+    if (kotlin.math.abs(deg) >= 3) {
+        T("%+d°".format(deg), 24, Color(0xFFB8BDC5))
+        Spacer(Modifier.width(24.dp))
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color) {
+    val c = car.cabinC.value
+    T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
+    Bar(c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
+}
+
+@Composable
+private fun SpeedTileBody(fixState: androidx.compose.runtime.State<Fix>) {
+    T(fixState.value.speedKmh?.toString() ?: "--", 120, Z.Bright, Condensed, FontWeight.Light)
+    T("KM/H", 20, Color(0xFFC3C8CF), spacing = 4f)
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: CarState, accent: Color) {
+    DoorGlyph(car, accent, Modifier.align(Alignment.CenterHorizontally).width(90.dp).height(140.dp))
+    val open = listOfNotNull(
+        if (car.driverDoor.value) "Driver" else null,
+        if (car.passengerDoor.value) "Passenger" else null,
+        if (car.boot.value) "Boot" else null,
+    )
+    T(if (open.isEmpty()) "All closed" else open.joinToString(" · ") + " open", 20, if (open.isEmpty()) Color(0xFFC3C8CF) else accent)
+}

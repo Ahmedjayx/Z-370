@@ -59,3 +59,101 @@ object Updater {
         }
     }
 }
+
+/**
+ * One-tap update straight from GitHub Releases: reads the latest release, downloads its
+ * Z370-Launcher-latest.apk and hands it to the session installer above.
+ * GitHub only serves release files without a login when the repository is public.
+ */
+object GithubUpdate {
+    private const val LATEST = "https://api.github.com/repos/Ahmedjayx/Z-370/releases/latest"
+    val status = androidx.compose.runtime.mutableStateOf("")
+    val busy = androidx.compose.runtime.mutableStateOf(false)
+
+    suspend fun run(ctx: Context) {
+        if (busy.value) return
+        busy.value = true
+        try {
+            status.value = "Checking GitHub…"
+            val (tag, url) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val conn = java.net.URL(LATEST).openConnection() as java.net.HttpURLConnection
+                conn.setRequestProperty("Accept", "application/vnd.github+json")
+                conn.connectTimeout = 15000; conn.readTimeout = 15000
+                if (conn.responseCode == 404) error("can't see the repository. It needs to be public for updates without a login.")
+                if (conn.responseCode != 200) error("GitHub answered ${conn.responseCode}")
+                val json = org.json.JSONObject(conn.inputStream.bufferedReader().readText())
+                val assets = json.getJSONArray("assets")
+                var apkUrl: String? = null
+                for (i in 0 until assets.length()) {
+                    val a = assets.getJSONObject(i)
+                    if (a.getString("name") == "Z370-Launcher-latest.apk") apkUrl = a.getString("browser_download_url")
+                }
+                json.getString("tag_name") to (apkUrl ?: error("no APK in the latest release"))
+            }
+            val current = try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { null }
+            if (current != null && "v$current" == tag) {
+                status.value = "Up to date ($tag)"
+                return
+            }
+            status.value = "Downloading $tag…"
+            val file = java.io.File(ctx.cacheDir, "update.apk")
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.instanceFollowRedirects = true
+                conn.connectTimeout = 15000; conn.readTimeout = 60000
+                conn.inputStream.use { inp -> file.outputStream().use { inp.copyTo(it) } }
+            }
+            status.value = "Installing $tag…"
+            Updater.install(ctx, android.net.Uri.fromFile(file))
+        } catch (e: Exception) {
+            status.value = "Update failed: ${e.message}"
+        } finally {
+            busy.value = false
+        }
+    }
+}
+
+/**
+ * Bluetooth music control on this firmware. The unit's own Bluetooth app (btsuite) ignores Android
+ * media keys; it listens for the MCU key broadcast, and also exposes a binder whose sendData() passes
+ * raw module commands (MA play/pause, MD next, ME prev). Both are tried.
+ */
+object BtControl {
+    fun send(ctx: Context, keyCode: Int) {
+        val (mcuKey, raw) = when (keyCode) {
+            android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> 2 to "MD"
+            android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> 3 to "ME"
+            else -> 6 to "MA"
+        }
+        try {
+            ctx.sendBroadcast(
+                Intent("com.szchoiceway.eventcenter.EventUtils.MCU_KEY_INFOR")
+                    .setPackage("com.szchoiceway.btsuite")
+                    .putExtra("EventUtils.MCU_KEY_VALUE", mcuKey),
+            )
+        } catch (_: Exception) {}
+        sendRaw(ctx, raw)
+    }
+
+    private fun sendRaw(ctx: Context, cmd: String) {
+        val conn = object : android.content.ServiceConnection {
+            override fun onServiceConnected(n: android.content.ComponentName?, b: android.os.IBinder?) {
+                try {
+                    val data = android.os.Parcel.obtain(); val reply = android.os.Parcel.obtain()
+                    data.writeInterfaceToken("com.szchoiceway.btsuite.IBTService")
+                    data.writeString(cmd)
+                    b?.transact(android.os.IBinder.FIRST_CALL_TRANSACTION + 2, data, reply, 0)
+                    data.recycle(); reply.recycle()
+                } catch (_: Exception) {}
+                try { ctx.unbindService(this) } catch (_: Exception) {}
+            }
+            override fun onServiceDisconnected(n: android.content.ComponentName?) {}
+        }
+        try {
+            ctx.bindService(
+                Intent("com.szchoiceway.btsuite.BTService").setPackage("com.szchoiceway.btsuite"),
+                conn, Context.BIND_AUTO_CREATE,
+            )
+        } catch (_: Exception) {}
+    }
+}

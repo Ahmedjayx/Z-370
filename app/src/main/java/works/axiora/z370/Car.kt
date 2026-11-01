@@ -98,11 +98,11 @@ fun rememberCarState(): CarState {
                     CarState.BACK_START -> car.reverse.value = true
                     CarState.BACK_END -> car.reverse.value = false
                     CarState.BT_AV -> {
-                        // Seen on this unit: 3 while playing, 4 when paused. Unconfirmed beyond that.
+                        // btsuite: 4 = playing, 3 = paused (BTUtils HBCP_STATUS_AV_PLAYING / AV_PAUSE).
                         val st = i.getIntExtra(CarState.BT_INT, -1)
                         val name = i.getStringExtra(CarState.BT_STR)
                         if (!name.isNullOrBlank()) car.btTitle.value = name
-                        car.btPlaying.value = st == 3
+                        car.btPlaying.value = st == 4
                     }
                 }
             }

@@ -34,7 +34,7 @@ const val MAP_STYLE = "https://tiles.openfreemap.org/styles/dark"
  * since the camera always keeps the car there. Tapping the card opens the real navigation app.
  */
 @Composable
-fun LiveMap(fix: Fix, accent: Color, modifier: Modifier) {
+fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifier: Modifier) {
     val ctx = LocalContext.current
     val mapView = remember {
         MapLibre.getInstance(ctx.applicationContext)
@@ -63,7 +63,7 @@ fun LiveMap(fix: Fix, accent: Color, modifier: Modifier) {
                 isCompassEnabled = false
                 setAllGesturesEnabled(false)
             }
-            map.cameraPosition = CameraPosition.Builder().target(LatLng(25.2048, 55.2708)).zoom(14.5).tilt(45.0).build()
+            map.cameraPosition = CameraPosition.Builder().target(LatLng(25.2048, 55.2708)).zoom(14.5).tilt(0.0).build()
         }
         onDispose {
             owner.lifecycle.removeObserver(obs)
@@ -72,18 +72,28 @@ fun LiveMap(fix: Fix, accent: Color, modifier: Modifier) {
         }
     }
 
-    // Follow the car: centre on it, rotate so the direction of travel points up.
-    LaunchedEffect(fix.lat, fix.lon, fix.bearing) {
-        val map = holder[0] ?: return@LaunchedEffect
-        val lat = fix.lat ?: return@LaunchedEffect
-        val lon = fix.lon ?: return@LaunchedEffect
-        val pos = CameraPosition.Builder()
-            .target(LatLng(lat, lon))
-            .zoom(if ((fix.speedKmh ?: 0) > 70) 14.0 else 15.5)
-            .bearing((fix.bearing ?: map.cameraPosition.bearing.toFloat()).toDouble())
-            .tilt(45.0)
-            .build()
-        map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 900)
+    // Follow the car, heading-up, flat (no 3D tilt: much lighter on this GPU). Moves the camera at most
+    // every 1.5 s and only when the car moved ~15 m or turned ~8°, instead of on every GPS fix.
+    LaunchedEffect(Unit) {
+        var lastLat = 0.0; var lastLon = 0.0; var lastBearing = 0f
+        androidx.compose.runtime.snapshotFlow { fixState.value }.collect { fix ->
+            val map = holder[0] ?: return@collect
+            val lat = fix.lat ?: return@collect
+            val lon = fix.lon ?: return@collect
+            val bearing = fix.bearing ?: lastBearing
+            val moved = kotlin.math.abs(lat - lastLat) + kotlin.math.abs(lon - lastLon) > 0.00014
+            val turned = kotlin.math.abs(bearing - lastBearing) > 8f
+            if (!moved && !turned) return@collect
+            lastLat = lat; lastLon = lon; lastBearing = bearing
+            val pos = CameraPosition.Builder()
+                .target(LatLng(lat, lon))
+                .zoom(if ((fix.speedKmh ?: 0) > 70) 14.0 else 15.5)
+                .bearing(bearing.toDouble())
+                .tilt(0.0)
+                .build()
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 1200)
+            kotlinx.coroutines.delay(1500)
+        }
     }
 
     Box(modifier) {
