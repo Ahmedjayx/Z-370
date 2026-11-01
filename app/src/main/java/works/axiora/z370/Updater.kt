@@ -33,7 +33,7 @@ object Updater {
                         session.fsync(out)
                     }
                 }
-                val intent = Intent(ACTION_STATUS).setPackage(ctx.packageName)
+                val intent = Intent(ctx, StatusReceiver::class.java).setAction(ACTION_STATUS)
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
                 session.commit(PendingIntent.getBroadcast(ctx, id, intent, flags).intentSender)
             }
