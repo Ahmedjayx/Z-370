@@ -380,7 +380,7 @@ fun NavCard(app: AppEntry?, accent: Color, modifier: Modifier, onOpen: () -> Uni
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width; val hh = size.height
-            val road = Color(0xFF1A1D21); val lane = Color(0xFF141619)
+            val road = Color(0xFF121417); val lane = Color(0xFF0E1012)
             drawLine(road, Offset(-20f, hh * 0.22f), Offset(w + 20f, hh * 0.32f), 14f)
             drawLine(road, Offset(-20f, hh * 0.66f), Offset(w + 20f, hh * 0.55f), 14f)
             drawLine(road, Offset(w * 0.18f, -20f), Offset(w * 0.24f, hh + 20f), 14f)
