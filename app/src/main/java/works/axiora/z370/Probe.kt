@@ -105,7 +105,7 @@ class Probe(private val ctx: Context) {
         if (events.size > 600) events.removeAt(events.lastIndex)
         return true
     }
-    private var receiver: BroadcastReceiver? = null
+    private val receivers = ArrayList<BroadcastReceiver>()
     private var actionCount = 0
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.US)
 
@@ -117,13 +117,37 @@ class Probe(private val ctx: Context) {
 
     // ------------------------------------------------------------ scan
 
+    private var scanned = false
+
     suspend fun scan() {
+        if (scanned) return
+        scanned = true
+        // Start on the messages we already know this firmware sends, so nothing is missed while the deep scan runs.
+        listen(KNOWN_ACTIONS)
+        actionCount = KNOWN_ACTIONS.size
+        status.value = "Listening for the known car messages · deep scan running in the background"
         val found = withContext(Dispatchers.IO) { scanApps() }
         apps.addAll(found.first)
-        val actions = found.second
-        actionCount = actions.size
-        listen(actions)
-        status.value = "Listening for ${actions.size} broadcast types · watching settings and properties"
+        val extra = found.second - KNOWN_ACTIONS
+        if (extra.isNotEmpty()) listen(extra)
+        actionCount += extra.size
+        status.value = "Listening for $actionCount broadcast types · watching settings and properties"
+    }
+
+    companion object {
+        val KNOWN_ACTIONS = setOf(
+            "com.choiceway.eventcenter.EventUtils.MCU_MSG_CAN_ALL_INFO",
+            "com.choiceway.eventcenter.EventUtils.MCU_MSG_BACKCAR_START",
+            "com.choiceway.eventcenter.EventUtils.MCU_MSG_BACKCAR_END",
+            "com.choiceway.eventcenter.EventUtils.ZXW_CAN_WHEEL_TRACK_EVT",
+            "com.szchoiceway.eventcenter.ZXW_MESSAGE_TO_ICCOMMUNICATION",
+            "com.szchoiceway.btsuite.HBCP_EVT_HSHF_STATUS",
+            "com.szchoiceway.btsuite.HBCP_EVT_CUR_CONNECTED_DEVICE_NAME",
+        )
+
+        @Volatile private var instance: Probe? = null
+        /** One probe for the app's lifetime, so closing and reopening the screen keeps the log. */
+        fun get(ctx: Context): Probe = instance ?: synchronized(this) { instance ?: Probe(ctx.applicationContext).also { instance = it } }
     }
 
     private fun scanApps(): Pair<List<String>, Set<String>> {
@@ -214,7 +238,7 @@ class Probe(private val ctx: Context) {
         val filter = IntentFilter()
         actions.forEach { filter.addAction(it) }
         // A few standard ones head units commonly reuse for ignition and screen state.
-        listOf(Intent.ACTION_SCREEN_ON, Intent.ACTION_SCREEN_OFF, Intent.ACTION_POWER_CONNECTED, Intent.ACTION_POWER_DISCONNECTED)
+        if (receivers.isEmpty()) listOf(Intent.ACTION_SCREEN_ON, Intent.ACTION_SCREEN_OFF, Intent.ACTION_POWER_CONNECTED, Intent.ACTION_POWER_DISCONNECTED)
             .forEach { filter.addAction(it) }
         val rx = object : BroadcastReceiver() {
             override fun onReceive(c: Context?, i: Intent?) {
@@ -232,7 +256,7 @@ class Probe(private val ctx: Context) {
             }
         }
         ContextCompat.registerReceiver(ctx, rx, filter, ContextCompat.RECEIVER_EXPORTED)
-        receiver = rx
+        receivers += rx
     }
 
     private fun describe(b: Bundle?): String {
@@ -253,8 +277,8 @@ class Probe(private val ctx: Context) {
     }
 
     fun stop() {
-        receiver?.let { try { ctx.unregisterReceiver(it) } catch (_: Exception) {} }
-        receiver = null
+        receivers.forEach { try { ctx.unregisterReceiver(it) } catch (_: Exception) {} }
+        receivers.clear()
     }
 
     // ------------------------------------------------------------ settings + properties
@@ -341,14 +365,14 @@ class Probe(private val ctx: Context) {
 @Composable
 fun ProbeScreen(accent: Color, onClose: () -> Unit) {
     val ctx = LocalContext.current
-    val probe = remember { Probe(ctx.applicationContext) }
+    val probe = remember { Probe.get(ctx) }
     val saved = remember { mutableStateOf("") }
     val tab = remember { mutableStateOf(0) }
 
     val view = LocalView.current
     DisposableEffect(Unit) {
         view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false; probe.stop() }
+        onDispose { view.keepScreenOn = false }
     }
     LaunchedEffect(Unit) { probe.scan() }
     LaunchedEffect(Unit) { probe.pollLoop { isActive } }
