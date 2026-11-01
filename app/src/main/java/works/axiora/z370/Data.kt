@@ -35,7 +35,7 @@ class MediaListener : NotificationListenerService()
 
 // ---------------------------------------------------------------- GPS
 
-data class Fix(val speedKmh: Int?, val bearing: Float?)
+data class Fix(val speedKmh: Int?, val bearing: Float?, val lat: Double? = null, val lon: Double? = null)
 
 @Composable
 fun rememberGpsFix(granted: Boolean): State<Fix> {
@@ -47,13 +47,15 @@ fun rememberGpsFix(granted: Boolean): State<Fix> {
             val speed = if (loc.hasSpeed()) (loc.speed * 3.6f).roundToInt() else null
             // Bearing is noise when stationary; hold the last good one.
             val bearing = if (loc.hasBearing() && loc.speed > 1.5f) loc.bearing else state.value.bearing
-            state.value = Fix(speed, bearing)
+            state.value = Fix(speed, bearing, loc.latitude, loc.longitude)
         }
         var registered = false
         if (granted && lm != null) {
             try {
                 lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0f, listener, Looper.getMainLooper())
                 registered = true
+                (lm.getLastKnownLocation(LocationManager.GPS_PROVIDER) ?: lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER))
+                    ?.let { if (state.value.lat == null) state.value = Fix(null, null, it.latitude, it.longitude) }
             } catch (_: Exception) {
             }
         }

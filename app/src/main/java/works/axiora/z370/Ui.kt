@@ -178,7 +178,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                     assignRole = role; drawer = true
                 }
             }
-            Home(
+            GlassHome(
                 car = car,
                 accent = accent,
                 locationGranted = locationGranted,
@@ -587,6 +587,7 @@ fun Drawer(
 
 @Composable
 fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit, onProbe: () -> Unit) {
+    val ctx = LocalContext.current
     Box(
         Modifier.fillMaxSize().background(Color(0xCC000000)).clickable(onClick = onClose),
         contentAlignment = Alignment.Center,
@@ -608,9 +609,28 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
                     ) { Box(Modifier.size(52.dp).clip(CircleShape).background(c)) }
                 }
             }
+            val pickApk = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+            ) { uri -> if (uri != null) Updater.install(ctx, uri) }
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Pill("INSTALL UPDATE FROM FILE") {
+                    if (!ctx.packageManager.canRequestPackageInstalls()) {
+                        try {
+                            ctx.startActivity(
+                                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + ctx.packageName))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        } catch (_: Exception) {}
+                    } else pickApk.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream"))
+                }
+                Pill("MEDIA ACCESS") {
+                    try {
+                        ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } catch (_: Exception) {}
+                }
+            }
             Pill("OPEN CAN PROBE", onClick = onProbe)
             T("Long-press any dock tile, or the navigation card, to choose its app.", 22, Z.Dim)
-            val ctx = LocalContext.current
             val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
             T("Version $ver", 20, Z.Faint)
         }
