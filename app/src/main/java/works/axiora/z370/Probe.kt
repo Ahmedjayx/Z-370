@@ -78,6 +78,42 @@ class Probe(private val ctx: Context) {
 
     private val lastByAction = HashMap<String, String>()
 
+    // Journal on internal storage, so a crash, the Back key or a theme switch never loses the run.
+    private val journal = File(ctx.filesDir, "probe-journal.txt")
+
+    init {
+        try {
+            if (journal.exists()) journal.readLines().forEach { l ->
+                when {
+                    l.startsWith("E|") -> events.add(0, l.substring(2))
+                    l.startsWith("C|") -> changes.add(0, l.substring(2))
+                }
+            }
+            while (events.size > 600) events.removeAt(events.lastIndex)
+            while (changes.size > 600) changes.removeAt(changes.lastIndex)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun persist(tag: String, line: String) {
+        try { journal.appendText("$tag|$line\n") } catch (_: Exception) {}
+    }
+
+    fun logE(line: String) {
+        events.add(0, line); persist("E", line)
+        if (events.size > 600) events.removeAt(events.lastIndex)
+    }
+
+    fun logC(line: String) {
+        changes.add(0, line); persist("C", line)
+        if (changes.size > 600) changes.removeAt(changes.lastIndex)
+    }
+
+    fun clear() {
+        events.clear(); changes.clear(); can.clear()
+        try { journal.delete() } catch (_: Exception) {}
+    }
+
     /** Latest frame per CAN box frame type, decoded from the MCU broadcast. */
     data class CanRow(val cmd: Int, val bytes: List<Int>, val changed: Set<Int>, val at: String, val changes: Int)
     val can = mutableStateMapOf<Int, CanRow>()
@@ -86,7 +122,7 @@ class Probe(private val ctx: Context) {
 
     fun mark(label: String) {
         val line = "${now()}  ──────── $label ────────"
-        events.add(0, line); changes.add(0, line)
+        logE(line); logC(line)
     }
 
     /** CAN box frames arrive as A5 2E <type> <len> <data…> <2-byte check>. */
@@ -101,7 +137,7 @@ class Probe(private val ctx: Context) {
         val diff = if (prev == null) emptySet() else data.indices.filter { it >= prev.bytes.size || prev.bytes[it] != data[it] }.toSet()
         can[cmd] = CanRow(cmd, data, diff, now(), (prev?.changes ?: -1) + 1)
         val tag = "CAN 0x%02X".format(cmd)
-        events.add(0, if (prev == null) "${now()}  $tag  first  ${hex(data)}" else "${now()}  $tag  ${hex(data)}   was ${hex(prev.bytes)}   bytes ${diff.joinToString(",")}")
+        logE(if (prev == null) "${now()}  $tag  first  ${hex(data)}" else "${now()}  $tag  ${hex(data)}   was ${hex(prev.bytes)}   bytes ${diff.joinToString(",")}")
         if (events.size > 600) events.removeAt(events.lastIndex)
         return true
     }
@@ -251,7 +287,7 @@ class Probe(private val ctx: Context) {
                 val key = "$action|$body"
                 if (lastByAction[action] == key) return
                 lastByAction[action] = key
-                events.add(0, "${now()}  $action  $body")
+                logE("${now()}  $action  $body")
                 if (events.size > 400) events.removeAt(events.lastIndex)
             }
         }
@@ -296,7 +332,7 @@ class Probe(private val ctx: Context) {
                     if (old != v) diffs += "${now()}  $k: ${old ?: "(new)"}  →  $v"
                 }
                 for (k in prev.keys) if (!snap.containsKey(k)) diffs += "${now()}  $k: removed"
-                diffs.forEach { changes.add(0, it) }
+                diffs.forEach { logC(it) }
                 while (changes.size > 400) changes.removeAt(changes.lastIndex)
             }
             lastSnap = snap
@@ -388,6 +424,8 @@ fun ProbeScreen(accent: Color, onClose: () -> Unit) {
                 T("DIAGNOSTICS", 18, Z.Dim, spacing = 3f)
                 T("CAN probe", 44, Z.Bright, Condensed, FontWeight.Medium)
             }
+            Pill("CLEAR") { probe.clear(); saved.value = "" }
+            Spacer(Modifier.width(14.dp))
             Pill("SAVE REPORT") { saved.value = probe.saveReport() }
             Spacer(Modifier.width(14.dp))
             RoundButton(80, Z.Bezel, onClose) { LineIcon("M6 6l12 12 M18 6L6 18", Z.Silver, 34.dp, 2f) }

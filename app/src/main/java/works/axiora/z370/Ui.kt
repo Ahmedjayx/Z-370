@@ -152,7 +152,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
     var drawer by remember { mutableStateOf(false) }
     var assignRole by remember { mutableStateOf<Role?>(null) }
     var settings by remember { mutableStateOf(false) }
-    var probe by remember { mutableStateOf(false) }
+    var probe by remember { mutableStateOf(Prefs.probeOpen(ctx)) }
     var roleTick by remember { mutableStateOf(0) }
 
     val pkgTick by rememberPackageTick()
@@ -161,9 +161,10 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
     }
 
     LaunchedEffect(homeSignal) {
-        drawer = false; assignRole = null; settings = false; probe = false
+        drawer = false; assignRole = null; settings = false
     }
-    BackHandler { drawer = false; assignRole = null; settings = false; probe = false }
+    // Back never closes the probe: only its X does, so a stray press can't end a recording.
+    BackHandler { drawer = false; assignRole = null; settings = false }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Z.Ground)) {
         // 1 dp == 1 px of the 1080-wide design, whatever the unit reports.
@@ -209,10 +210,10 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                     accent = accent,
                     onAccent = { accent = it; Prefs.setAccent(ctx, it.toArgb()) },
                     onClose = { settings = false },
-                    onProbe = { settings = false; probe = true },
+                    onProbe = { settings = false; probe = true; Prefs.setProbeOpen(ctx, true) },
                 )
             }
-            if (probe) ProbeScreen(accent = accent, onClose = { probe = false })
+            if (probe) ProbeScreen(accent = accent, onClose = { probe = false; Prefs.setProbeOpen(ctx, false) })
         }
     }
 }
