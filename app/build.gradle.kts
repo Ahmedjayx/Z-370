@@ -8,7 +8,7 @@ val runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
 
 android {
     namespace = "works.axiora.z370"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "works.axiora.z370launcher"
