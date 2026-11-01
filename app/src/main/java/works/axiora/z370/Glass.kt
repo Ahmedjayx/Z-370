@@ -239,7 +239,7 @@ private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp
         Box(
             Modifier.size(146.dp).clip(RoundedCornerShape(30.dp))
                 .background(Brush.linearGradient(listOf(accent, Color(0xFF2A0D06))))
-                .clickable(onClick = onOpenMusic),
+                .clickable { if (np == null) BtControl.openBtMusic(ctx) else onOpenMusic() },
             contentAlignment = Alignment.Center,
         ) {
             val art = np?.art
@@ -250,7 +250,11 @@ private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp
             T(title ?: "Nothing playing", 46, Z.Bright, Condensed, FontWeight.Medium)
             T(subtitle, 22, Color(0xFFC3C8CF))
         }
-        if (title != null) {
+        // Phone music only plays once the unit's Bluetooth app is the audio source, so with
+        // nothing playing, play first switches to it (opens its music page), then starts playback.
+        if (title == null) {
+            GlassButton(100, { BtControl.openBtMusic(ctx, thenPlay = true) }, 1.6f) { LineIcon("M7 4l13 8-13 8z", Z.Bright, 38.dp, 2.2f) }
+        } else {
             GlassButton(76, { key(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }) { LineIcon("M19 5L9 12l10 7z M5 5v14", Z.Bright, 30.dp, 2f) }
             GlassButton(100, { key(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }, 1.6f) {
                 if (playing) LineIcon("M8 5v14 M16 5v14", Z.Bright, 38.dp, 2.2f) else LineIcon("M7 4l13 8-13 8z", Z.Bright, 38.dp, 2.2f)

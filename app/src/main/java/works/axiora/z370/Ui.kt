@@ -173,7 +173,11 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
         val scale = constraints.maxWidth / 1080f
         CompositionLocalProvider(LocalDensity provides Density(scale, 1f)) {
             val resolved = remember(apps, roleTick) { Role.entries.associateWith { resolveRole(ctx, it, apps) } }
-            val open: (Role) -> Unit = { role ->
+            val open: (Role) -> Unit = open@{ role ->
+                // Default Music tile: the unit's Bluetooth music page (phone audio), unless you picked an app.
+                if (role == Role.MUSIC && Prefs.rolePkg(ctx, Role.MUSIC) == null) {
+                    BtControl.openBtMusic(ctx); return@open
+                }
                 val app = resolved[role]
                 if (app == null || !launchApp(ctx, app.pkg)) {
                     assignRole = role; drawer = true

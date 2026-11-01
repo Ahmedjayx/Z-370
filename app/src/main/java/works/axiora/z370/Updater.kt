@@ -119,6 +119,21 @@ object GithubUpdate {
  * raw module commands (MA play/pause, MD next, ME prev). Both are tried.
  */
 object BtControl {
+    /** Opens the unit's Bluetooth music page, which makes phone audio the active source. */
+    fun openBtMusic(ctx: Context, thenPlay: Boolean = false) {
+        try {
+            ctx.startActivity(
+                Intent().setClassName("com.szchoiceway.btsuite", "com.szchoiceway.btsuite.BTMainActivity")
+                    .putExtra("GotoPageNum", "BTMusic")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            if (thenPlay) android.os.Handler(android.os.Looper.getMainLooper())
+                .postDelayed({ send(ctx, android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }, 1500)
+        } catch (_: Exception) {
+            android.widget.Toast.makeText(ctx, "Couldn't open Bluetooth music", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun send(ctx: Context, keyCode: Int) {
         val (mcuKey, raw) = when (keyCode) {
             android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> 2 to "MD"
