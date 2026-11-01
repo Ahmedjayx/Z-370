@@ -152,6 +152,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
     var drawer by remember { mutableStateOf(false) }
     var assignRole by remember { mutableStateOf<Role?>(null) }
     var settings by remember { mutableStateOf(false) }
+    var probe by remember { mutableStateOf(false) }
     var roleTick by remember { mutableStateOf(0) }
 
     val pkgTick by rememberPackageTick()
@@ -160,9 +161,9 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
     }
 
     LaunchedEffect(homeSignal) {
-        drawer = false; assignRole = null; settings = false
+        drawer = false; assignRole = null; settings = false; probe = false
     }
-    BackHandler { drawer = false; assignRole = null; settings = false }
+    BackHandler { drawer = false; assignRole = null; settings = false; probe = false }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Z.Ground)) {
         // 1 dp == 1 px of the 1080-wide design, whatever the unit reports.
@@ -208,8 +209,10 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                     accent = accent,
                     onAccent = { accent = it; Prefs.setAccent(ctx, it.toArgb()) },
                     onClose = { settings = false },
+                    onProbe = { settings = false; probe = true },
                 )
             }
+            if (probe) ProbeScreen(accent = accent, onClose = { probe = false })
         }
     }
 }
@@ -552,7 +555,7 @@ fun Drawer(
 }
 
 @Composable
-fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit) {
+fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit, onProbe: () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(Color(0xCC000000)).clickable(onClick = onClose),
         contentAlignment = Alignment.Center,
@@ -574,6 +577,7 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit)
                     ) { Box(Modifier.size(52.dp).clip(CircleShape).background(c)) }
                 }
             }
+            Pill("OPEN CAN PROBE", onClick = onProbe)
             T("Long-press any dock tile, or the navigation card, to choose its app.", 22, Z.Dim)
             val ctx = LocalContext.current
             val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
