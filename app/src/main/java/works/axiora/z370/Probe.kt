@@ -25,6 +25,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -71,6 +77,34 @@ class Probe(private val ctx: Context) {
     val status = mutableStateOf("Scanning car apps…")
 
     private val lastByAction = HashMap<String, String>()
+
+    /** Latest frame per CAN box frame type, decoded from the MCU broadcast. */
+    data class CanRow(val cmd: Int, val bytes: List<Int>, val changed: Set<Int>, val at: String, val changes: Int)
+    val can = mutableStateMapOf<Int, CanRow>()
+
+    private fun hex(b: List<Int>) = b.joinToString(" ") { "%02X".format(it) }
+
+    fun mark(label: String) {
+        val line = "${now()}  ──────── $label ────────"
+        events.add(0, line); changes.add(0, line)
+    }
+
+    /** CAN box frames arrive as A5 2E <type> <len> <data…> <2-byte check>. */
+    private fun onCanFrame(raw: ByteArray): Boolean {
+        if (raw.size < 4) return false
+        val cmd = raw[2].toInt() and 0xFF
+        val len = raw[3].toInt() and 0xFF
+        if (raw.size < 4 + len) return false
+        val data = (0 until len).map { raw[4 + it].toInt() and 0xFF }
+        val prev = can[cmd]
+        if (prev != null && prev.bytes == data) return true
+        val diff = if (prev == null) emptySet() else data.indices.filter { it >= prev.bytes.size || prev.bytes[it] != data[it] }.toSet()
+        can[cmd] = CanRow(cmd, data, diff, now(), (prev?.changes ?: -1) + 1)
+        val tag = "CAN 0x%02X".format(cmd)
+        events.add(0, if (prev == null) "${now()}  $tag  first  ${hex(data)}" else "${now()}  $tag  ${hex(data)}   was ${hex(prev.bytes)}   bytes ${diff.joinToString(",")}")
+        if (events.size > 600) events.removeAt(events.lastIndex)
+        return true
+    }
     private var receiver: BroadcastReceiver? = null
     private var actionCount = 0
     private val clock = SimpleDateFormat("HH:mm:ss", Locale.US)
@@ -186,6 +220,9 @@ class Probe(private val ctx: Context) {
             override fun onReceive(c: Context?, i: Intent?) {
                 if (i == null) return
                 val action = i.action ?: "?"
+                @Suppress("DEPRECATION")
+                val frame = i.extras?.get("EventUtils.CAR_AIR_DATA") as? ByteArray
+                if (frame != null && onCanFrame(frame)) return
                 val body = describe(i.extras)
                 val key = "$action|$body"
                 if (lastByAction[action] == key) return
@@ -280,6 +317,8 @@ class Probe(private val ctx: Context) {
             appendLine("Z370 Launcher CAN probe")
             appendLine("Device ${Build.MANUFACTURER} ${Build.MODEL} · ${Build.DISPLAY} · Android ${Build.VERSION.RELEASE}")
             appendLine("Broadcast types listened for: $actionCount")
+            appendLine(); appendLine("== CAN LIVE (latest frame per type) ==")
+            can.values.sortedBy { it.cmd }.forEach { r -> appendLine("0x%02X  len %2d  changes %3d  %s".format(r.cmd, r.bytes.size, r.changes, hex(r.bytes))) }
             appendLine(); appendLine("== EVENTS (newest first) =="); events.forEach { appendLine(it) }
             appendLine(); appendLine("== CHANGED VALUES (newest first) =="); changes.forEach { appendLine(it) }
             appendLine(); appendLine("== CAR APPS =="); apps.forEach { appendLine(it) }
@@ -331,22 +370,30 @@ fun ProbeScreen(accent: Color, onClose: () -> Unit) {
         }
         BasicText(probe.status.value + if (saved.value.isNotEmpty()) "\n" + saved.value else "", style = mono.copy(color = accent))
         BasicText(
-            "Leave this open, then one at a time: open and close each door and the boot, shift into reverse and out, " +
-                "lights on and off, change fan speed and temperature, press steering-wheel buttons. Wait 3 seconds between each.",
+            "Tap a label below, then do that action: on, wait 3 seconds, off, wait 3 seconds. Then the next label.",
             style = TextStyle(color = Z.Dim, fontSize = 22.sp, fontFamily = Barlow, lineHeight = 30.sp),
         )
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            listOf(
+                "DRIVER DOOR", "PASSENGER DOOR", "BOOT", "BONNET", "SIDELIGHTS", "HEADLIGHTS", "HIGH BEAM",
+                "HANDBRAKE", "SEATBELT", "INDICATORS", "WHEEL KEYS", "REVERSE", "ENGINE START", "DRIVE 20 KM/H",
+            ).forEach { label -> Pill("+ $label") { probe.mark(label) } }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            listOf("EVENTS ${probe.events.size}", "CHANGES ${probe.changes.size}", "CAR APPS").forEachIndexed { i, label ->
+            listOf("CAN LIVE ${probe.can.size}", "EVENTS ${probe.events.size}", "CHANGES ${probe.changes.size}", "CAR APPS").forEachIndexed { i, label ->
                 Pill(label, selected = tab.value == i, accent = accent) { tab.value = i }
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Z.Stroke))
-        val rows = when (tab.value) { 0 -> probe.events; 1 -> probe.changes; else -> probe.apps }
+        if (tab.value == 0) {
+            CanLive(probe, mono, accent)
+        } else {
+        val rows = when (tab.value) { 1 -> probe.events; 2 -> probe.changes; else -> probe.apps }
         if (rows.isEmpty()) {
             BasicText(
                 when (tab.value) {
-                    0 -> "No broadcasts yet. Try the actions above."
-                    1 -> "No changes yet. Values are compared every 1.2 seconds."
+                    1 -> "No broadcasts yet. Try the actions above."
+                    2 -> "No changes yet. Values are compared every 1.2 seconds."
                     else -> "Scanning…"
                 },
                 style = mono.copy(color = Z.Faint),
@@ -354,6 +401,30 @@ fun ProbeScreen(accent: Color, onClose: () -> Unit) {
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(rows) { line -> BasicText(line, style = mono) }
+        }
+        }
+    }
+}
+
+@Composable
+fun CanLive(probe: Probe, mono: TextStyle, accent: Color) {
+    val rows = probe.can.values.sortedBy { it.cmd }
+    if (rows.isEmpty()) {
+        BasicText("No CAN frames yet. They appear a few seconds after the engine or ignition is on.", style = mono.copy(color = Z.Faint))
+        return
+    }
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(rows, key = { it.cmd }) { r ->
+            val text = buildAnnotatedString {
+                withStyle(SpanStyle(color = Z.Dim)) { append("0x%02X  ".format(r.cmd)) }
+                r.bytes.forEachIndexed { i, b ->
+                    if (i in r.changed) withStyle(SpanStyle(color = accent, fontWeight = FontWeight.Bold)) { append("%02X".format(b)) }
+                    else append("%02X".format(b))
+                    append(" ")
+                }
+                withStyle(SpanStyle(color = Z.Faint)) { append("  ×${r.changes}  ${r.at}") }
+            }
+            BasicText(text, style = mono)
         }
     }
 }
