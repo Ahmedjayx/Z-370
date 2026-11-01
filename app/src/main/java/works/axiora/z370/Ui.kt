@@ -254,15 +254,15 @@ fun Home(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            PodColumn("HEADING", Modifier.weight(1f)) { CompassPod(fix.bearing, accent) }
+            PodColumn("CABIN", Modifier.weight(1f)) { CabinPod(car.cabinC.value, accent) }
             PodColumn("GPS SPEED", Modifier.weight(1.35f)) { SpeedPod(fix.speedKmh, accent) }
             PodColumn("CLOCK", Modifier.weight(1f)) { ClockPod(now, accent) }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             NavCard(resolved[Role.MAPS], accent, Modifier.fillMaxSize(), { onRole(Role.MAPS) }, { onAssign(Role.MAPS) })
-            if (car.driverDoor.value || car.passengerDoor.value) DoorAlert(car, accent, Modifier.fillMaxSize())
+            if (car.driverDoor.value || car.passengerDoor.value || car.boot.value) DoorAlert(car, accent, Modifier.fillMaxSize())
         }
-        MediaCard(media, accent, resolved[Role.MUSIC], { onRole(Role.MUSIC) })
+        MediaCard(media, car, accent, resolved[Role.MUSIC], { onRole(Role.MUSIC) })
         Dock(accent, onRole, onAssign, onApps)
     }
 }
@@ -280,12 +280,6 @@ fun StatusRow(now: Long, car: CarState, onSettings: () -> Unit) {
         Spacer(Modifier.width(22.dp))
         T(SimpleDateFormat("EEE dd MMM", Locale.ENGLISH).format(d).uppercase(), 22, Z.Dim, spacing = 2f)
         Spacer(Modifier.weight(1f))
-        car.cabinC.value?.let { c ->
-            T("CABIN", 18, Z.Faint, spacing = 3f)
-            Spacer(Modifier.width(10.dp))
-            T("%.1f°".format(c), 30, Z.Silver, Condensed, FontWeight.Medium)
-            Spacer(Modifier.width(28.dp))
-        }
         car.steeringDeg.value?.let { a ->
             Canvas(Modifier.size(40.dp)) {
                 val c = center; val r = size.minDimension / 2f - 3f
@@ -440,9 +434,29 @@ fun NavCard(app: AppEntry?, accent: Color, modifier: Modifier, onOpen: () -> Uni
 }
 
 @Composable
-fun MediaCard(media: MediaState, accent: Color, musicApp: AppEntry?, onOpenMusic: () -> Unit) {
+fun MediaCard(media: MediaState, car: CarState, accent: Color, musicApp: AppEntry?, onOpenMusic: () -> Unit) {
     val ctx = LocalContext.current
     val np = media.now.value
+    // Without media-session access (blocked on this unit), fall back to the unit's own Bluetooth audio broadcast.
+    val btTitle = car.btTitle.value
+    val title: String?
+    val subtitle: String
+    val playing: Boolean
+    when {
+        np != null -> { title = np.title.ifBlank { "Unknown track" }; subtitle = np.artist; playing = np.playing }
+        btTitle != null -> { title = btTitle; subtitle = "Bluetooth audio"; playing = car.btPlaying.value }
+        else -> { title = null; subtitle = musicApp?.label ?: "Tap the cover to open music"; playing = false }
+    }
+    fun key(code: Int) {
+        val tc = np?.controller?.transportControls
+        if (tc != null) {
+            when (code) {
+                android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> tc.skipToPrevious()
+                android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> tc.skipToNext()
+                else -> if (playing) tc.pause() else tc.play()
+            }
+        } else sendMediaKey(ctx, code)
+    }
     Row(
         Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(22.dp))
             .background(Brush.verticalGradient(listOf(Color(0xFF121417), Color(0xFF0D0F11))))
@@ -461,40 +475,29 @@ fun MediaCard(media: MediaState, accent: Color, musicApp: AppEntry?, onOpenMusic
             else LineIcon(Role.MUSIC.path, Color(0xFF4A4E55), 56.dp, 1.4f)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            when {
-                !media.access.value -> {
-                    T("MEDIA", 18, Z.Dim, spacing = 3f)
-                    T("Allow media access", 40, Z.Bright, Condensed, FontWeight.Medium)
-                    T("Tap here, then switch on Z370 Launcher", 22, Z.Dim, modifier = Modifier.clickable {
-                        try {
-                            ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                        } catch (_: Exception) {
-                        }
-                    })
-                }
-                np == null -> {
-                    T("MEDIA", 18, Z.Dim, spacing = 3f)
-                    T("Nothing playing", 40, Z.Bright, Condensed, FontWeight.Medium)
-                    T(musicApp?.label ?: "Tap the cover to open music", 22, Z.Dim)
-                }
-                else -> {
-                    T("NOW PLAYING", 18, Z.Dim, spacing = 3f)
-                    T(np.title.ifBlank { "Unknown track" }, 42, Z.Bright, Condensed, FontWeight.Medium)
-                    T(np.artist, 24, Color(0xFFA4A9B0))
-                }
-            }
+            T(if (title == null) "MEDIA" else "NOW PLAYING", 18, Z.Dim, spacing = 3f)
+            T(title ?: "Nothing playing", 42, Z.Bright, Condensed, FontWeight.Medium)
+            T(subtitle, 24, Color(0xFFA4A9B0))
         }
-        if (np != null) {
-            val tc = np.controller.transportControls
+        if (title != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                RoundButton(72, Color(0xFF2F3338), { tc.skipToPrevious() }) { LineIcon("M19 5L9 12l10 7z M5 5v14", Z.Silver, 30.dp, 1.8f) }
-                RoundButton(96, accent, { if (np.playing) tc.pause() else tc.play() }, fill = Color(0xFF1B1E22)) {
-                    if (np.playing) LineIcon("M8 5v14 M16 5v14", Z.Bright, 36.dp, 2f)
+                RoundButton(72, Color(0xFF2F3338), { key(android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS) }) { LineIcon("M19 5L9 12l10 7z M5 5v14", Z.Silver, 30.dp, 1.8f) }
+                RoundButton(96, accent, { key(android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) }, fill = Color(0xFF1B1E22)) {
+                    if (playing) LineIcon("M8 5v14 M16 5v14", Z.Bright, 36.dp, 2f)
                     else LineIcon("M7 4l13 8-13 8z", Z.Bright, 36.dp, 2f)
                 }
-                RoundButton(72, Color(0xFF2F3338), { tc.skipToNext() }) { LineIcon("M5 5l10 7-10 7z M19 5v14", Z.Silver, 30.dp, 1.8f) }
+                RoundButton(72, Color(0xFF2F3338), { key(android.view.KeyEvent.KEYCODE_MEDIA_NEXT) }) { LineIcon("M5 5l10 7-10 7z M19 5v14", Z.Silver, 30.dp, 1.8f) }
             }
         }
+    }
+}
+
+fun sendMediaKey(ctx: android.content.Context, code: Int) {
+    try {
+        val am = ctx.getSystemService(android.media.AudioManager::class.java)
+        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, code))
+        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, code))
+    } catch (_: Exception) {
     }
 }
 
@@ -618,6 +621,7 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
 fun DoorAlert(car: CarState, accent: Color, modifier: Modifier) {
     val driver = car.driverDoor.value
     val passenger = car.passengerDoor.value
+    val boot = car.boot.value
     Row(
         modifier.clip(RoundedCornerShape(22.dp)).background(Color(0xF20A0B0D))
             .border(2.dp, accent, RoundedCornerShape(22.dp)).padding(36.dp),
@@ -642,17 +646,45 @@ fun DoorAlert(car: CarState, accent: Color, modifier: Modifier) {
             }
             door(left, driver, -1f)
             door(left + bw, passenger, 1f)
+            val rear = top + bh
+            if (boot) drawLine(accent, Offset(left + bw * 0.2f, rear + 6f), Offset(left + bw * 0.8f, rear + 6f), 10f, StrokeCap.Round)
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            T("DOOR OPEN", 18, accent, spacing = 3f, weight = FontWeight.Medium)
-            T(
-                when {
-                    driver && passenger -> "Both doors"
-                    driver -> "Driver door"
-                    else -> "Passenger door"
-                },
-                48, Z.Bright, Condensed, FontWeight.Medium,
-            )
+            T("OPEN", 18, accent, spacing = 3f, weight = FontWeight.Medium)
+            listOfNotNull(
+                if (driver) "Driver door" else null,
+                if (passenger) "Passenger door" else null,
+                if (boot) "Boot" else null,
+            ).forEach { T(it, 48, Z.Bright, Condensed, FontWeight.Medium) }
+        }
+    }
+}
+
+@Composable
+fun CabinPod(tempC: Float?, accent: Color) {
+    // Styled after the factory oil-temp pod: 10–50 °C over a 270° sweep.
+    val lo = 10f; val hi = 50f
+    Bezel(270) {
+        Canvas(Modifier.fillMaxSize()) {
+            val c = center
+            val r = size.minDimension / 2f - 14f
+            for (i in 0..8) {
+                val a = 135f + 270f * i / 8f
+                rotate(a + 90f, c) {
+                    drawLine(Z.Bezel, Offset(c.x, c.y - r), Offset(c.x, c.y - r + (if (i % 2 == 0) 18f else 9f)), 3f, StrokeCap.Round)
+                }
+            }
+            if (tempC != null) {
+                val f = ((tempC - lo) / (hi - lo)).coerceIn(0f, 1f)
+                rotate(135f + 270f * f + 90f, c) {
+                    drawLine(accent, c, Offset(c.x, c.y - r * 0.80f), 5f, StrokeCap.Round)
+                }
+            }
+            drawCircle(Z.Ground, 8f, c)
+            drawCircle(Z.Dim, 8f, c, style = Stroke(2f))
+        }
+        Column(Modifier.fillMaxSize().padding(bottom = 30.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+            T(tempC?.let { "%.1f°".format(it) } ?: "--", 40, Z.Bright, Condensed, FontWeight.Medium)
         }
     }
 }
