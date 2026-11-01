@@ -629,6 +629,8 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
                     } catch (_: Exception) {}
                 }
             }
+            Pill(if (OfflineMap.busy.value) "DOWNLOADING UAE MAP…" else "DOWNLOAD UAE OFFLINE MAP") { OfflineMap.start(ctx) }
+            if (OfflineMap.status.value.isNotEmpty()) T(OfflineMap.status.value, 20, Z.Dim)
             Pill("OPEN CAN PROBE", onClick = onProbe)
             T("Long-press any dock tile, or the navigation card, to choose its app.", 22, Z.Dim)
             val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }

@@ -27,7 +27,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 
 /** OpenFreeMap: free OpenStreetMap vector tiles, no account or key. Dark style to sit under the glass. */
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
+const val MAP_STYLE = "https://tiles.openfreemap.org/styles/dark"
 
 /**
  * A live map that follows the car, heading-up. The position puck is drawn by us at the centre,
@@ -56,7 +56,7 @@ fun LiveMap(fix: Fix, accent: Color, modifier: Modifier) {
         owner.lifecycle.addObserver(obs)
         mapView.getMapAsync { map ->
             holder[0] = map
-            map.setStyle(STYLE_URL)
+            map.setStyle(MAP_STYLE)
             map.uiSettings.apply {
                 isLogoEnabled = false
                 isAttributionEnabled = true

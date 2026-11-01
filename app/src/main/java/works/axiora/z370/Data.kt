@@ -30,8 +30,35 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import kotlin.math.roundToInt
 
-/** Required so Android lets the launcher read the active media sessions. */
-class MediaListener : NotificationListenerService()
+/**
+ * Notification access gives two things: the active media sessions, and Google Maps' (or Waze's)
+ * ongoing navigation notification, which carries the next turn while it routes.
+ */
+class MediaListener : NotificationListenerService() {
+    override fun onNotificationPosted(sbn: android.service.notification.StatusBarNotification) {
+        if (sbn.packageName !in Nav.APPS || !sbn.isOngoing) return
+        val ex = sbn.notification.extras
+        val title = ex.getCharSequence(android.app.Notification.EXTRA_TITLE)?.toString()
+        val text = ex.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
+        val sub = ex.getCharSequence(android.app.Notification.EXTRA_SUB_TEXT)?.toString()
+        val icon = try {
+            sbn.notification.getLargeIcon()?.loadDrawable(this)?.toBitmap(160, 160)?.asImageBitmap()
+        } catch (_: Exception) { null }
+        if (title.isNullOrBlank() && text.isNullOrBlank()) return
+        Nav.step.value = NavStep(title.orEmpty(), text.orEmpty(), sub, icon, sbn.packageName)
+    }
+
+    override fun onNotificationRemoved(sbn: android.service.notification.StatusBarNotification) {
+        if (sbn.packageName == Nav.step.value?.app && sbn.isOngoing) Nav.step.value = null
+    }
+}
+
+data class NavStep(val title: String, val text: String, val sub: String?, val arrow: ImageBitmap?, val app: String)
+
+object Nav {
+    val APPS = setOf("com.google.android.apps.maps", "com.waze")
+    val step = mutableStateOf<NavStep?>(null)
+}
 
 // ---------------------------------------------------------------- GPS
 

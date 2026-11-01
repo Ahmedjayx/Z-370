@@ -167,12 +167,23 @@ fun GlassHome(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
-                    LineIcon("M3 11l18-8-8 18-2-8z", accent, 40.dp, 2f)
-                    Column(Modifier.weight(1f)) {
-                        T("NAVIGATION", 18, Color(0xFFC3C8CF), spacing = 3f)
-                        T(resolved[Role.MAPS]?.label ?: "Choose a maps app", 38, Z.Bright, Condensed, FontWeight.Medium)
+                    val step = Nav.step.value
+                    if (step != null) {
+                        // Live next turn from Google Maps / Waze while they navigate.
+                        val arrow = step.arrow
+                        if (arrow != null) Image(arrow, null, Modifier.size(64.dp)) else LineIcon("M9 6l6 6-6 6", Z.Bright, 48.dp, 2.2f)
+                        Column(Modifier.weight(1f)) {
+                            T(step.title, 38, Z.Bright, Condensed, FontWeight.Medium)
+                            T(listOfNotNull(step.text.ifBlank { null }, step.sub).joinToString(" · "), 20, Color(0xFFC3C8CF))
+                        }
+                    } else {
+                        LineIcon("M3 11l18-8-8 18-2-8z", accent, 40.dp, 2f)
+                        Column(Modifier.weight(1f)) {
+                            T("NAVIGATION", 18, Color(0xFFC3C8CF), spacing = 3f)
+                            T(resolved[Role.MAPS]?.label ?: "Choose a maps app", 38, Z.Bright, Condensed, FontWeight.Medium)
+                        }
+                        T("TAP TO OPEN", 18, Color(0xFFC3C8CF), spacing = 2f)
                     }
-                    T("TAP TO OPEN", 18, Color(0xFFC3C8CF), spacing = 2f)
                 }
             }
 
