@@ -16,6 +16,8 @@ android {
         targetSdk = 34
         versionCode = runNumber
         versionName = "0.1.$runNumber"
+        // The head unit is a 64-bit ARM Snapdragon: ship only that, not x86/32-bit map engines.
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     signingConfigs {
