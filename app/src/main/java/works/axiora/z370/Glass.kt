@@ -112,7 +112,7 @@ fun GlassHome(
             Row(Modifier.fillMaxWidth().height(110.dp), verticalAlignment = Alignment.CenterVertically) {
                 HeaderClock()
                 Spacer(Modifier.weight(1f))
-                SteeringReadout(car)
+                OutsideTemp(car)
                 Box(Modifier.size(80.dp).glass(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
                     LineIcon("M4 6h16 M4 12h16 M4 18h16 M8 4v4 M16 10v4 M10 16v4", Z.Bright, 34.dp)
                 }
@@ -288,6 +288,14 @@ private fun HeaderClock() {
     }
 }
 
+@Composable
+private fun OutsideTemp(car: CarState) {
+    val t = car.outsideTemp.value ?: return
+    T(t.replace("℃", "°").replace("C", "°").trim() + " OUTSIDE", 24, Color(0xFFB8BDC5), spacing = 2f)
+    Spacer(Modifier.width(24.dp))
+}
+
+@Suppress("unused")
 @Composable
 private fun SteeringReadout(car: CarState) {
     val a = car.steeringDeg.value ?: return

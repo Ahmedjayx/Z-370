@@ -30,6 +30,7 @@ class CarState {
     val boot = mutableStateOf(false)
     val btTitle = mutableStateOf<String?>(null)
     val btPlaying = mutableStateOf(false)
+    val outsideTemp = mutableStateOf<String?>(null)
     val steeringDeg = mutableStateOf<Float?>(null)
     val cabinC = mutableStateOf<Float?>(null)
     val setTempL = mutableStateOf<Float?>(null)
@@ -69,6 +70,7 @@ class CarState {
         const val BACK_END = "com.choiceway.eventcenter.EventUtils.MCU_MSG_BACKCAR_END"
         const val FRAME_KEY = "EventUtils.CAR_AIR_DATA"
         const val BT_AV = "com.szchoiceway.btsuite.HBCP_EVT_AV_STATUS"
+        const val OUT_TEMP = "com.choiceway.eventcenter.CanUtils.CAN_CAR_OUT_SIDE_TEMP_EVT"
         const val BT_INT = "com.szchoiceway.btsuite.DATA_INT"
         const val BT_STR = "com.szchoiceway.btsuite.DATA_STR"
     }
@@ -97,6 +99,7 @@ fun rememberCarState(): CarState {
                     }
                     CarState.BACK_START -> car.reverse.value = true
                     CarState.BACK_END -> car.reverse.value = false
+                    CarState.OUT_TEMP -> i.getStringExtra(CarState.OUT_TEMP + "_EXTRA_STR")?.let { if (it.isNotBlank()) car.outsideTemp.value = it }
                     CarState.BT_AV -> {
                         // btsuite: 4 = playing, 3 = paused (BTUtils HBCP_STATUS_AV_PLAYING / AV_PAUSE).
                         val st = i.getIntExtra(CarState.BT_INT, -1)
@@ -108,7 +111,7 @@ fun rememberCarState(): CarState {
             }
         }
         val f = IntentFilter().apply {
-            addAction(CarState.CAN_ALL); addAction(CarState.BACK_START); addAction(CarState.BACK_END); addAction(CarState.BT_AV)
+            addAction(CarState.CAN_ALL); addAction(CarState.BACK_START); addAction(CarState.BACK_END); addAction(CarState.BT_AV); addAction(CarState.OUT_TEMP)
         }
         ContextCompat.registerReceiver(ctx, rx, f, ContextCompat.RECEIVER_EXPORTED)
         onDispose { try { ctx.unregisterReceiver(rx) } catch (_: Exception) {} }

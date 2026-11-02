@@ -179,6 +179,12 @@ class Probe(private val ctx: Context) {
             "com.szchoiceway.eventcenter.ZXW_MESSAGE_TO_ICCOMMUNICATION",
             "com.szchoiceway.btsuite.HBCP_EVT_HSHF_STATUS",
             "com.szchoiceway.btsuite.HBCP_EVT_CUR_CONNECTED_DEVICE_NAME",
+            "com.szchoiceway.btsuite.HBCP_EVT_AV_STATUS",
+            "com.szchoiceway.eventcenter.EventUtils.MCU_CAR_CAN_INFO",
+            "com.choiceway.eventcenter.CanUtils.CAN_CAR_OUT_SIDE_TEMP_EVT",
+            "com.szchoiceway.eventcenter.EventUtils.ACCORD_DOOR_INFO",
+            "com.szchoiceway.uiModeNightChanged",
+            "com.szchoiceway.eventcenter.EventUtils.MCU_KEY_INFOR",
         )
 
         @Volatile private var instance: Probe? = null
