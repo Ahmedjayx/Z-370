@@ -79,7 +79,9 @@ fun CarHero(car: CarState, modifier: Modifier) {
             Image(spin, null, Modifier.fillMaxSize().padding(horizontal = 12.dp), contentScale = ContentScale.Fit)
         } else {
             Crossfade(targetState = key, animationSpec = tween(350), label = "car") { k ->
+                // Keep at most the two images a crossfade needs in memory.
                 val bmp = states.getOrPut(k) { load(k) }
+                if (states.size > 2) states.keys.filter { it != k && it != key }.forEach { states.remove(it) }
                 if (bmp != null) Image(bmp, null, Modifier.fillMaxSize().padding(horizontal = 12.dp), contentScale = ContentScale.Fit)
             }
         }
