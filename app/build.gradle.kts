@@ -46,6 +46,8 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    // Compress the native map engine inside the APK: smaller download, unpacked once at install.
+    packaging { jniLibs { useLegacyPackaging = true } }
     buildFeatures {
         compose = true
     }
