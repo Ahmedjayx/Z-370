@@ -134,6 +134,19 @@ object BtControl {
         }
     }
 
+    /** Answer (23) or end (22) a call through the unit's Bluetooth app. Effect not yet confirmed on this unit. */
+    fun call(ctx: Context, answer: Boolean) {
+        try {
+            ctx.sendBroadcast(
+                Intent("com.szchoiceway.eventcenter.EventUtils.MCU_KEY_INFOR")
+                    .setPackage("com.szchoiceway.btsuite")
+                    .putExtra("EventUtils.MCU_KEY_VALUE", if (answer) 23 else 22),
+            )
+            if (!answer) ctx.sendBroadcast(Intent("com.szchoiceway.btsuite.HBCP_HANGUP_EVENT").setPackage("com.szchoiceway.btsuite"))
+        } catch (_: Exception) {}
+        sendRaw(ctx, if (answer) "DE" else "DG")
+    }
+
     fun send(ctx: Context, keyCode: Int) {
         val (mcuKey, raw) = when (keyCode) {
             android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> 2 to "MD"

@@ -62,6 +62,27 @@ object Nav {
 
 // ---------------------------------------------------------------- GPS
 
+/** Trip computer from GPS: distance and time since the drive began. A new trip starts after 30 min parked. */
+object Trip {
+    val km = androidx.compose.runtime.mutableFloatStateOf(0f)
+    val minutes = androidx.compose.runtime.mutableIntStateOf(0)
+    private var last: android.location.Location? = null
+    private var startMs = 0L
+    private var lastMoveMs = 0L
+
+    fun onFix(loc: android.location.Location) {
+        val now = System.currentTimeMillis()
+        val moving = loc.hasSpeed() && loc.speed > 1.5f
+        if (moving) {
+            if (startMs == 0L || now - lastMoveMs > 30 * 60_000L) { km.floatValue = 0f; startMs = now; last = null }
+            lastMoveMs = now
+            last?.let { p -> val d = p.distanceTo(loc); if (d < 500f) km.floatValue += d / 1000f }
+            last = loc
+        }
+        if (startMs != 0L) minutes.intValue = ((now - startMs) / 60_000L).toInt()
+    }
+}
+
 data class Fix(val speedKmh: Int?, val bearing: Float?, val lat: Double? = null, val lon: Double? = null)
 
 @Composable
@@ -75,6 +96,7 @@ fun rememberGpsFix(granted: Boolean): State<Fix> {
             // Bearing is noise when stationary; hold the last good one.
             val bearing = if (loc.hasBearing() && loc.speed > 1.5f) loc.bearing else state.value.bearing
             state.value = Fix(speed, bearing, loc.latitude, loc.longitude)
+            Trip.onFix(loc)
         }
         var registered = false
         if (granted && lm != null) {

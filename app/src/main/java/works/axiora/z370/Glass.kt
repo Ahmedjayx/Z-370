@@ -101,6 +101,7 @@ fun GlassHome(
     // a steering frame redraws only that piece, never the whole screen with the map in it.
     val fixState = rememberGpsFix(locationGranted)
     val media = rememberMedia()
+    val sweep = rememberStartupSweep()
 
     Box(Modifier.fillMaxSize()) {
         AmbientBackdrop(accent)
@@ -120,8 +121,8 @@ fun GlassHome(
 
             // Tiles: cabin, speed, doors.
             Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent) }
-                Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState) }
+                Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent, sweep) }
+                Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState, accent, sweep) }
                 Tile("DOORS", Modifier.weight(1f)) { DoorsTileBody(car, accent) }
             }
 
@@ -132,6 +133,7 @@ fun GlassHome(
                     .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
             ) {
                 LiveMap(fixState, accent, Modifier.fillMaxSize())
+                CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
                 Row(
                     Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
                         .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0x55050506)).padding(horizontal = 30.dp),
@@ -199,15 +201,43 @@ private fun Bar(fraction: Float, accent: Color) {
 
 @Composable
 fun DoorGlyph(car: CarState, accent: Color, modifier: Modifier) {
+    val spec = androidx.compose.animation.core.tween<Float>(450)
+    val dl by androidx.compose.animation.core.animateFloatAsState(if (car.driverDoor.value) 1f else 0f, spec, label = "dl")
+    val dr by androidx.compose.animation.core.animateFloatAsState(if (car.passengerDoor.value) 1f else 0f, spec, label = "dr")
+    val bt by androidx.compose.animation.core.animateFloatAsState(if (car.boot.value) 1f else 0f, spec, label = "bt")
     Canvas(modifier) {
         val w = size.width; val h = size.height
-        val line = Color.White.copy(alpha = 0.55f)
-        drawRoundRect(line, Offset(w * 0.08f, 0f), Size(w * 0.84f, h), CornerRadius(w * 0.36f), style = Stroke(3f))
-        drawRoundRect(Color.White.copy(alpha = 0.28f), Offset(w * 0.22f, h * 0.30f), Size(w * 0.56f, h * 0.40f), CornerRadius(w * 0.16f), style = Stroke(2f))
-        val top = h * 0.34f; val bot = h * 0.62f
-        if (car.driverDoor.value) drawLine(accent, Offset(w * 0.08f, top), Offset(-w * 0.08f, (top + bot) / 2f), 8f, StrokeCap.Round)
-        if (car.passengerDoor.value) drawLine(accent, Offset(w * 0.92f, top), Offset(w * 1.08f, (top + bot) / 2f), 8f, StrokeCap.Round)
-        if (car.boot.value) drawLine(accent, Offset(w * 0.25f, h + 4f), Offset(w * 0.75f, h + 4f), 8f, StrokeCap.Round)
+        val body = Color.White.copy(alpha = 0.60f)
+        val glassLine = Color.White.copy(alpha = 0.30f)
+        // Long bonnet, cabin set back, wide rear haunches: a short-overhang coupe from above, nose up.
+        val p = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.50f, 0f)
+            cubicTo(w * 0.80f, 0f, w * 0.86f, h * 0.06f, w * 0.86f, h * 0.18f)
+            lineTo(w * 0.86f, h * 0.48f)
+            cubicTo(w * 0.86f, h * 0.56f, w * 0.94f, h * 0.62f, w * 0.94f, h * 0.72f)
+            lineTo(w * 0.94f, h * 0.88f)
+            cubicTo(w * 0.94f, h * 0.97f, w * 0.80f, h, w * 0.50f, h)
+            cubicTo(w * 0.20f, h, w * 0.06f, h * 0.97f, w * 0.06f, h * 0.88f)
+            lineTo(w * 0.06f, h * 0.72f)
+            cubicTo(w * 0.06f, h * 0.62f, w * 0.14f, h * 0.56f, w * 0.14f, h * 0.48f)
+            lineTo(w * 0.14f, h * 0.18f)
+            cubicTo(w * 0.14f, h * 0.06f, w * 0.20f, 0f, w * 0.50f, 0f)
+            close()
+        }
+        drawPath(p, body, style = Stroke(3f))
+        // Glasshouse: windscreen to the rear hatch glass.
+        drawRoundRect(glassLine, Offset(w * 0.26f, h * 0.38f), Size(w * 0.48f, h * 0.36f), CornerRadius(w * 0.18f), style = Stroke(2f))
+        // Doors: hinge at the front edge, swing out up to 40°.
+        val hingeY = h * 0.42f; val doorLen = h * 0.24f
+        fun door(x: Float, open: Float, dir: Float) {
+            val a = Math.toRadians((40.0 * open)).toFloat()
+            val end = Offset(x + dir * kotlin.math.sin(a) * doorLen, hingeY + kotlin.math.cos(a) * doorLen)
+            drawLine(if (open > 0.05f) accent else body, Offset(x, hingeY), end, if (open > 0.05f) 7f else 4f, StrokeCap.Round)
+        }
+        door(w * 0.14f, dl, -1f)
+        door(w * 0.86f, dr, 1f)
+        // Boot: hatch lifts as a lit bar behind the car.
+        if (bt > 0.05f) drawLine(accent, Offset(w * 0.24f, h + 4f + 10f * bt), Offset(w * 0.76f, h + 4f + 10f * bt), 7f, StrokeCap.Round)
     }
 }
 
@@ -308,16 +338,86 @@ private fun SteeringReadout(car: CarState) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color) {
+private fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
     val c = car.cabinC.value
     T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
-    Bar(c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
+    val set = car.setTempL.value
+    val fan = car.fan.value
+    if (set != null) T("SET %.1f°".format(set) + (fan?.let { " · FAN $it" } ?: ""), 20, Color(0xFFC3C8CF), spacing = 1f)
+    val s = sweep.value
+    Bar(if (s >= 0f) s else c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
 }
 
 @Composable
-private fun SpeedTileBody(fixState: androidx.compose.runtime.State<Fix>) {
-    T(fixState.value.speedKmh?.toString() ?: "--", 120, Z.Bright, Condensed, FontWeight.Light)
-    T("KM/H", 20, Color(0xFFC3C8CF), spacing = 4f)
+private fun SpeedTileBody(fixState: androidx.compose.runtime.State<Fix>, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
+    val s = sweep.value
+    val kmh = if (s >= 0f) (s * 260f).toInt() else fixState.value.speedKmh
+    Row(verticalAlignment = Alignment.Bottom) {
+        T(kmh?.toString() ?: "--", 110, Z.Bright, Condensed, FontWeight.Light)
+        Spacer(Modifier.width(10.dp))
+        T("KM/H", 20, Color(0xFFC3C8CF), spacing = 4f, modifier = Modifier.padding(bottom = 18.dp))
+    }
+    val km = Trip.km.floatValue
+    val min = Trip.minutes.intValue
+    T(if (km < 0.05f && min == 0) "TRIP —" else "TRIP %.1f KM · %d:%02d".format(km, min / 60, min % 60), 20, Color(0xFFC3C8CF), spacing = 1f)
+    Bar(if (s >= 0f) s else ((kmh ?: 0) / 260f).coerceIn(0f, 1f), accent)
+}
+
+/**
+ * Factory-style needle sweep: up to full scale and back once when the launcher starts and every time
+ * the screen wakes (ignition on). Returns -1 when idle, otherwise the sweep position 0..1.
+ */
+@Composable
+fun rememberStartupSweep(): androidx.compose.runtime.State<Float> {
+    val ctx = LocalContext.current
+    val value = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(-1f) }
+    val trigger = androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        val rx = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context?, i: android.content.Intent?) { trigger.intValue++ }
+        }
+        ctx.registerReceiver(rx, android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_ON))
+        onDispose { try { ctx.unregisterReceiver(rx) } catch (_: Exception) {} }
+    }
+    androidx.compose.runtime.LaunchedEffect(trigger.intValue) {
+        val a = androidx.compose.animation.core.Animatable(0f)
+        value.floatValue = 0f
+        delay(350)
+        a.animateTo(1f, androidx.compose.animation.core.tween(750, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { value.floatValue = this.value }
+        delay(150)
+        a.animateTo(0f, androidx.compose.animation.core.tween(850, easing = androidx.compose.animation.core.FastOutSlowInEasing)) { value.floatValue = this.value }
+        value.floatValue = -1f
+    }
+    return value
+}
+
+@Composable
+private fun CallCard(car: CarState, accent: Color, modifier: Modifier) {
+    val st = car.callState.value
+    if (st < 4) return
+    val ctx = LocalContext.current
+    val who = car.callName.value ?: car.callNumber.value ?: "Unknown"
+    Row(
+        modifier.fillMaxWidth().height(150.dp).glass(RoundedCornerShape(40.dp), 1.4f).background(Color(0x99050506)).padding(horizontal = 30.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(22.dp),
+    ) {
+        Column(Modifier.weight(1f)) {
+            T(when (st) { 5 -> "INCOMING CALL"; 4 -> "CALLING"; else -> "ON CALL" }, 18, accent, spacing = 3f, weight = FontWeight.Medium)
+            T(who, 46, Z.Bright, Condensed, FontWeight.Medium)
+            if (car.callName.value != null && car.callNumber.value != null) T(car.callNumber.value!!, 20, Color(0xFFC3C8CF))
+        }
+        if (st == 5) {
+            Box(
+                Modifier.size(96.dp).clip(CircleShape).background(Color(0xFF1F9D55)).clickable { BtControl.call(ctx, true) },
+                contentAlignment = Alignment.Center,
+            ) { LineIcon("M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z", Color.White, 40.dp, 2f) }
+        }
+        Box(
+            Modifier.size(96.dp).clip(CircleShape).background(Color(0xFFD9332B)).clickable { BtControl.call(ctx, false) },
+            contentAlignment = Alignment.Center,
+        ) { LineIcon("M6 6l12 12 M18 6L6 18", Color.White, 36.dp, 2.4f) }
+    }
 }
 
 @Composable

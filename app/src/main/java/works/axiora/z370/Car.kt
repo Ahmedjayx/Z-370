@@ -35,6 +35,12 @@ class CarState {
     val cabinC = mutableStateOf<Float?>(null)
     val setTempL = mutableStateOf<Float?>(null)
     val setTempR = mutableStateOf<Float?>(null)
+    /** Fan level, low nibble of 0x55 byte 2 (0x12 read as fan 2 on screen). Inferred from one session. */
+    val fan = mutableStateOf<Int?>(null)
+    /** btsuite HFP state: 3 connected idle, 4 outgoing, 5 incoming, 6 active call. */
+    val callState = mutableStateOf(0)
+    val callName = mutableStateOf<String?>(null)
+    val callNumber = mutableStateOf<String?>(null)
     val reverse = mutableStateOf(false)
     val night = mutableStateOf(false)
     val live = mutableStateOf(false)
@@ -59,6 +65,7 @@ class CarState {
             0x55 -> if (len >= 2) {
                 setTempL.value = b(0) / 2f
                 setTempR.value = b(1) / 2f
+                if (len >= 3) fan.value = b(2) and 0x0F
             }
             0x6B -> if (len >= 5) cabinC.value = b(4) / 2f
         }
@@ -70,6 +77,9 @@ class CarState {
         const val BACK_END = "com.choiceway.eventcenter.EventUtils.MCU_MSG_BACKCAR_END"
         const val FRAME_KEY = "EventUtils.CAR_AIR_DATA"
         const val BT_AV = "com.szchoiceway.btsuite.HBCP_EVT_AV_STATUS"
+        const val HSHF = "com.szchoiceway.btsuite.HBCP_EVT_HSHF_STATUS"
+        const val CONTACT_NAME = "com.szchoiceway.btsuite.HBCP_EVT_CONTACT_NAME"
+        const val CONTACT_NUM = "com.szchoiceway.btsuite.HBCP_EVT_CONTACT_NUM"
         const val OUT_TEMP = "com.choiceway.eventcenter.CanUtils.CAN_CAR_OUT_SIDE_TEMP_EVT"
         const val BT_INT = "com.szchoiceway.btsuite.DATA_INT"
         const val BT_STR = "com.szchoiceway.btsuite.DATA_STR"
@@ -99,6 +109,13 @@ fun rememberCarState(): CarState {
                     }
                     CarState.BACK_START -> car.reverse.value = true
                     CarState.BACK_END -> car.reverse.value = false
+                    CarState.HSHF -> {
+                        val st = i.getIntExtra(CarState.BT_INT, 0)
+                        car.callState.value = st
+                        if (st <= 3) { car.callName.value = null; car.callNumber.value = null }
+                    }
+                    CarState.CONTACT_NAME -> car.callName.value = i.getStringExtra(CarState.BT_STR)?.takeIf { it.isNotBlank() }
+                    CarState.CONTACT_NUM -> car.callNumber.value = i.getStringExtra(CarState.BT_STR)?.takeIf { it.isNotBlank() }
                     CarState.OUT_TEMP -> i.getStringExtra(CarState.OUT_TEMP + "_EXTRA_STR")?.let { if (it.isNotBlank()) car.outsideTemp.value = it }
                     CarState.BT_AV -> {
                         // btsuite: 4 = playing, 3 = paused (BTUtils HBCP_STATUS_AV_PLAYING / AV_PAUSE).
@@ -111,7 +128,7 @@ fun rememberCarState(): CarState {
             }
         }
         val f = IntentFilter().apply {
-            addAction(CarState.CAN_ALL); addAction(CarState.BACK_START); addAction(CarState.BACK_END); addAction(CarState.BT_AV); addAction(CarState.OUT_TEMP)
+            addAction(CarState.CAN_ALL); addAction(CarState.BACK_START); addAction(CarState.BACK_END); addAction(CarState.BT_AV); addAction(CarState.OUT_TEMP); addAction(CarState.HSHF); addAction(CarState.CONTACT_NAME); addAction(CarState.CONTACT_NUM)
         }
         ContextCompat.registerReceiver(ctx, rx, f, ContextCompat.RECEIVER_EXPORTED)
         onDispose { try { ctx.unregisterReceiver(rx) } catch (_: Exception) {} }
