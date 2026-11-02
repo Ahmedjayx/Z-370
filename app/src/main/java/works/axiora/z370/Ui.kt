@@ -652,6 +652,7 @@ fun SettingsSheet(accent: Color, onAccent: (Color) -> Unit, onClose: () -> Unit,
             T("Long-press any dock tile, or the navigation card, to choose its app.", 22, Z.Dim)
             val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
             T("Version $ver", 20, Z.Faint)
+            T("Car model: \"2020 Nissan 370Z Sport Touring\" by Ddiaz Design, CC BY-NC-SA 4.0", 16, Z.Faint)
         }
     }
 }

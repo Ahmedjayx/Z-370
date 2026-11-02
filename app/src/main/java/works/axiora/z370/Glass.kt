@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -123,7 +124,7 @@ fun GlassHome(
             Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent, sweep) }
                 Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState, accent, sweep) }
-                Tile("DOORS", Modifier.weight(1f)) { DoorsTileBody(car, accent) }
+                Tile("CLIMATE", Modifier.weight(1f)) { ClimateTileBody(car) }
             }
 
             // Live map with a glass navigation bar.
@@ -133,6 +134,7 @@ fun GlassHome(
                     .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
             ) {
                 LiveMap(fixState, accent, Modifier.fillMaxSize())
+                CarOverlay(fixState, car, accent)
                 CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
                 Row(
                     Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
@@ -341,9 +343,6 @@ private fun SteeringReadout(car: CarState) {
 private fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
     val c = car.cabinC.value
     T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
-    val set = car.setTempL.value
-    val fan = car.fan.value
-    if (set != null) T("SET %.1f°".format(set) + (fan?.let { " · FAN $it" } ?: ""), 20, Color(0xFFC3C8CF), spacing = 1f)
     val s = sweep.value
     Bar(if (s >= 0f) s else c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
 }
@@ -429,4 +428,45 @@ private fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: Ca
         if (car.boot.value) "Boot" else null,
     )
     T(if (open.isEmpty()) "All closed" else open.joinToString(" · ") + " open", 20, if (open.isEmpty()) Color(0xFFC3C8CF) else accent)
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: CarState) {
+    val l = car.setTempL.value
+    val r = car.setTempR.value
+    T(if (l == null) "--" else if (r == null || r == l) "%.1f°".format(l) else "%.0f° · %.0f°".format(l, r), 72, Z.Bright, Condensed, FontWeight.Light)
+    T(car.fan.value?.let { "FAN $it" } ?: "FAN --", 22, Color(0xFFC3C8CF), spacing = 3f)
+    car.outsideTemp.value?.let { T(it.replace("℃", "°") + " OUTSIDE", 18, Color(0xFFC3C8CF), spacing = 1f) }
+}
+
+/** Reads speed in its own scope so a GPS fix redraws only this overlay, not the whole home. */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color) {
+    // Parked: the car with its live doors over a dark studio. Moving: the live map.
+    var forceMap by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val parked = (fixState.value.speedKmh ?: 0) < 5
+    val anyOpen = car.driverDoor.value || car.passengerDoor.value || car.boot.value
+    val ctx = LocalContext.current
+    val hasRenders = androidx.compose.runtime.remember { ctx.resources.getIdentifier("car_000", "drawable", ctx.packageName) != 0 }
+    if (!hasRenders) return
+    val showCar = anyOpen || (parked && !forceMap)
+    androidx.compose.animation.AnimatedVisibility(
+        visible = showCar,
+        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400)),
+        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Box(Modifier.fillMaxSize().background(Color(0xFF07080A))) {
+            AmbientBackdrop(accent)
+            CarHero(car, Modifier.fillMaxSize().padding(bottom = 130.dp, top = 20.dp))
+        }
+    }
+    if (parked && !anyOpen) {
+        Box(
+            Modifier.align(Alignment.TopEnd).padding(24.dp).height(64.dp)
+                .glass(RoundedCornerShape(32.dp), 1.3f).clickable { forceMap = !forceMap }
+                .padding(horizontal = 26.dp),
+            contentAlignment = Alignment.Center,
+        ) { T(if (showCar) "MAP" else "CAR", 20, Z.Bright, spacing = 3f) }
+    }
 }
