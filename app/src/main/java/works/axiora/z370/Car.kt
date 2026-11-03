@@ -60,7 +60,8 @@ class CarState {
             }
             0x29 -> if (len >= 2) {
                 val v = (b(1) shl 8 or b(0)).toShort().toInt()
-                steeringDeg.value = v / 10f
+                // The box reports right turns as positive; the app uses positive = left (checked in the car, 3 Nov).
+                steeringDeg.value = -v / 10f
             }
             0x55 -> if (len >= 2) {
                 setTempL.value = b(0) / 2f
