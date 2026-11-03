@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   shots:
     runs-on: ubuntu-latest
@@ -33,3 +36,10 @@ jobs:
           path: |
             app/build/shots/*.png
             app/build/reports/tests/
+      - name: Publish to the shots branch
+        run: |
+          mkdir /tmp/pub && cp app/build/shots/*.png /tmp/pub/ 2>/dev/null || true
+          find app/build/test-results -name "*.xml" -exec cp {} /tmp/pub/ \; 2>/dev/null || true
+          cd /tmp/pub && git init -q -b shots && git add -A
+          git -c user.name=ci -c user.email=ci@local commit -qm "shots ${GITHUB_SHA}" || exit 0
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" shots
