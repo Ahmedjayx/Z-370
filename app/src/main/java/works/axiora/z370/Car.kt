@@ -120,7 +120,7 @@ fun rememberCarState(): CarState {
                         car.callState.value = st
                         if (st <= 3) { car.callName.value = null; car.callNumber.value = null }
                     }
-                    CarState.CONTACT_NAME -> car.callName.value = i.getStringExtra(CarState.BT_STR)?.takeIf { it.isNotBlank() }
+                    CarState.CONTACT_NAME -> car.callName.value = i.getStringExtra(CarState.BT_STR)?.takeIf { it.isNotBlank() && !it.startsWith("Unknown", ignoreCase = true) }
                     CarState.CONTACT_NUM -> car.callNumber.value = i.getStringExtra(CarState.BT_STR)?.takeIf { it.isNotBlank() }
                     CarState.OUT_TEMP -> i.getStringExtra(CarState.OUT_TEMP + "_EXTRA_STR")?.let { if (it.isNotBlank()) car.outsideTemp.value = it }
                     CarState.BT_AV -> {
