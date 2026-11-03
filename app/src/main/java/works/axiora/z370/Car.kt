@@ -35,6 +35,8 @@ class CarState {
     val cabinC = mutableStateOf<Float?>(null)   // no longer decoded: 0x6B byte 4 turned out to be range
     /** Fuel level, percent (0x6B byte 0). Rises slowly after ignition as the gauge settles, like the cluster. */
     val fuelPct = mutableStateOf<Int?>(null)
+    /** The raw 0x6B byte 0, kept for calibrating "full". */
+    val fuelRaw = mutableStateOf<Int?>(null)
     /** Distance to empty, km (0x6B bytes 4–5, little-endian, sent in miles; 0x0FFF = not available yet). */
     val rangeKm = mutableStateOf<Int?>(null)
     val setTempL = mutableStateOf<Float?>(null)
@@ -76,7 +78,11 @@ class CarState {
             // Drive of 3 Nov: bytes 4–5 counted 360 → 359 → 358 km while driving (range), and were 0x0FFF
             // before the trip computer had a figure. Byte 0 = 73 with that range fits fuel percent on a 72 L tank.
             0x6B -> if (len >= 6) {
-                fuelPct.value = b(0).takeIf { it in 0..100 }
+                // Byte 0 is a level, not a percent: it read 77 with a full tank (3 Nov), so scale by the
+                // calibrated "full" value (Garage → TANK IS FULL NOW).
+                val raw = b(0).takeIf { it in 0..120 }
+                fuelRaw.value = raw
+                fuelPct.value = raw?.let { (it * 100 / Cfg.fuelFullRaw.intValue.coerceAtLeast(1)).coerceIn(0, 100) }
                 val r = b(4) or (b(5) shl 8)
                 // The box sends range in miles: 321 here while the cluster read 515 km (321 × 1.609 = 516).
                 rangeKm.value = r.takeIf { it in 1..1000 }?.let { (it * 1.609f).toInt() }

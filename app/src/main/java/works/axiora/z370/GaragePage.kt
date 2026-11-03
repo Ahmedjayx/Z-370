@@ -68,7 +68,7 @@ private val Checklist = listOf(
 )
 
 @Composable
-fun GaragePage(accent: Color) {
+fun GaragePage(accent: Color, car: CarState) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -118,6 +118,17 @@ fun GaragePage(accent: Color) {
                         GlassField(text, { text = it }, "km", number = true, modifier = Modifier.weight(1f))
                         GlassPill("SAVE", accent) {
                             text.toIntOrNull()?.let { Cfg.odometerKm.intValue = it; Cfg.set("odometerKm", it) }
+                        }
+                    }
+                }
+                Card(Modifier.fillMaxWidth(), "FUEL") {
+                    val raw = car.fuelRaw.value
+                    T(car.fuelPct.value?.let { "Tank $it%" + (car.rangeKm.value?.let { r -> " · range $r km" } ?: "") } ?: "Waiting for car data", 28, Z.Bright, Condensed, FontWeight.Medium)
+                    T("Just filled up? Tap once so 100% matches your full tank.", 18, Muted)
+                    GlassPill("TANK IS FULL NOW", accent) {
+                        if (raw != null && raw > 20) {
+                            Cfg.fuelFullRaw.intValue = raw; Cfg.set("fuelFullRaw", raw)
+                            car.fuelPct.value = 100
                         }
                     }
                 }

@@ -37,6 +37,8 @@ object Cfg {
 
     // Garage
     val odometerKm = mutableIntStateOf(0)
+    /** Raw fuel byte that means a full tank (77 measured with a full tank on 3 Nov 2026). */
+    val fuelFullRaw = mutableIntStateOf(77)
     val oilAtKm = mutableIntStateOf(0)
     val oilAtMs = mutableStateOf(0L)
     val oilEveryKm = mutableIntStateOf(10000)
@@ -60,6 +62,7 @@ object Cfg {
         driveFace.value = p.getString("driveFace", "sweep")!!
         redlineKmh.intValue = p.getInt("redlineKmh", 140)
         odometerKm.intValue = p.getInt("odometerKm", 0)
+        fuelFullRaw.intValue = p.getInt("fuelFullRaw", 77)
         oilAtKm.intValue = p.getInt("oilAtKm", 0)
         oilAtMs.value = p.getLong("oilAtMs", 0L)
         oilEveryKm.intValue = p.getInt("oilEveryKm", 10000)

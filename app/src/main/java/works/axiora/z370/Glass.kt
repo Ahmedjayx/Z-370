@@ -137,7 +137,7 @@ fun AppShell(
                 when (page) {
                     "drive" -> DrivePage(fixState, car, accent)
                     "media" -> MediaPage(car, accent, resolved, onRole)
-                    "garage" -> GaragePage(accent)
+                    "garage" -> GaragePage(accent, car)
                     "settings" -> SettingsPage(accent, resolved, onAccent, onAssign)
                     else -> HomePage(fixState, car, accent, resolved, onRole, onAssign, onApps)
                 }
