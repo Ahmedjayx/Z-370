@@ -56,7 +56,6 @@ class CarState {
         if (raw.size < 4 + len) return
         fun b(i: Int) = raw[4 + i].toInt() and 0xFF
         live.value = true
-        DriveLog.onFrame(type, (0 until len).joinToString(" ") { "%02X".format(b(it)) })
         when (type) {
             0x28 -> if (len >= 1) {
                 driverDoor.value = b(0) and 0x40 != 0
@@ -99,7 +98,17 @@ class CarState {
     }
 }
 
-fun readProp(key: String): String? = try {
+/** System property read in-process (no shell spawned); falls back to getprop if the API is hidden. */
+private val sysPropGet: java.lang.reflect.Method? = try {
+    Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+} catch (_: Throwable) { null }
+
+fun readProp(key: String): String? {
+    sysPropGet?.let { m -> try { return (m.invoke(null, key) as? String)?.ifEmpty { null } } catch (_: Throwable) {} }
+    return readPropShell(key)
+}
+
+private fun readPropShell(key: String): String? = try {
     val p = Runtime.getRuntime().exec(arrayOf("getprop", key))
     val v = p.inputStream.bufferedReader().readText().trim()
     p.waitFor()
@@ -153,7 +162,7 @@ fun rememberCarState(): CarState {
             car.night.value = dark == "1"
             val back = withContext(Dispatchers.IO) { readProp("sys.backcar.state") }
             if (back != null) car.reverse.value = back == "1"
-            delay(1500)
+            delay(2000)
         }
     }
     return car

@@ -36,7 +36,7 @@ class PageShots {
         rule.setContent {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalDensity provides Density(constraints.maxWidth / 1080f, 1f)) {
-                    AppShell(car, Color(0xFFFF5A1F), false, emptyMap(), {}, {}, {}, {}, {})
+                    AppShell(car, Color(0xFFFF5A1F), false, emptyMap(), {}, {}, {}, {})
                 }
             }
         }

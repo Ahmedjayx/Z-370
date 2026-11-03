@@ -25,7 +25,6 @@ class MainActivity : ComponentActivity() {
         }
         Cfg.load(this)
         Perf.load(this)
-        DriveLog.init(this)
         setContent {
             Root(homeSignal = homeSignal.intValue, locationGranted = locationGranted.value)
         }

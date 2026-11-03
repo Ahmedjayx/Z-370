@@ -310,8 +310,6 @@ object Prefs {
     fun rolePkg(ctx: Context, role: Role): String? = sp(ctx).getString("role_${role.name}", null)
     fun setRolePkg(ctx: Context, role: Role, pkg: String?) =
         sp(ctx).edit().apply { if (pkg == null) remove("role_${role.name}") else putString("role_${role.name}", pkg) }.apply()
-    fun probeOpen(ctx: Context): Boolean = sp(ctx).getBoolean("probe_open", false)
-    fun setProbeOpen(ctx: Context, open: Boolean) = sp(ctx).edit().putBoolean("probe_open", open).apply()
     fun accent(ctx: Context): Int = sp(ctx).getInt("accent", 0xFFFF5A1F.toInt())
     fun setAccent(ctx: Context, argb: Int) = sp(ctx).edit().putInt("accent", argb).apply()
 }

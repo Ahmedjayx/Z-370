@@ -48,7 +48,6 @@ fun SettingsPage(
     resolved: Map<Role, AppEntry?>,
     onAccent: (Color) -> Unit,
     onAssign: (Role) -> Unit,
-    onProbe: () -> Unit,
 ) {
     val ctx = LocalContext.current
     Column(
@@ -190,10 +189,7 @@ fun SettingsPage(
             GlassPill("MEDIA ACCESS") {
                 try { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
             }
-            GlassPill("CAN PROBE", onClick = onProbe)
-            GlassPill("SAVE DRIVE LOG") { DriveLog.save(ctx) }
         }
-        if (DriveLog.status.value.isNotEmpty()) T(DriveLog.status.value, 20, Muted, modifier = Modifier.padding(start = 8.dp))
         val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
         Column(Modifier.padding(start = 8.dp, top = 10.dp, bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             T("Z370 Launcher $ver", 22, Soft)

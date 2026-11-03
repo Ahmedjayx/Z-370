@@ -103,7 +103,6 @@ fun AppShell(
     onAssign: (Role) -> Unit,
     onApps: () -> Unit,
     onAccent: (Color) -> Unit,
-    onProbe: () -> Unit,
 ) {
     // Each live value is read inside its own small composable, so a clock tick, a GPS fix or
     // a steering frame redraws only that piece, never the whole screen with the map in it.
@@ -139,7 +138,7 @@ fun AppShell(
                     "drive" -> DrivePage(fixState, car, accent)
                     "media" -> MediaPage(car, accent, resolved, onRole)
                     "garage" -> GaragePage(accent)
-                    "settings" -> SettingsPage(accent, resolved, onAccent, onAssign, onProbe)
+                    "settings" -> SettingsPage(accent, resolved, onAccent, onAssign)
                     else -> HomePage(fixState, car, accent, resolved, onRole, onAssign, onApps)
                 }
             }
@@ -451,14 +450,6 @@ fun androidx.compose.foundation.layout.ColumnScope.FuelTileBody(car: CarState, a
     }
     T(if (pct != null) "RANGE · TANK $pct%" else "RANGE", 20, Color(0xFFDDE1E6), spacing = 2f)
     Bar((pct ?: 0) / 100f, if ((pct ?: 100) <= 12) Color(0xFFFF3B2F) else accent)
-}
-
-@Composable
-fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
-    val c = car.cabinC.value
-    T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
-    val s = sweep.value
-    Bar(if (s >= 0f) s else c?.let { ((it - 10f) / 40f).coerceIn(0f, 1f) } ?: 0f, accent)
 }
 
 @Composable
