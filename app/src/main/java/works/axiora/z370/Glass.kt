@@ -103,6 +103,7 @@ fun GlassHome(
     val fixState = rememberGpsFix(locationGranted)
     val media = rememberMedia()
     val sweep = rememberStartupSweep()
+    WeatherUpdater(fixState)
 
     Box(Modifier.fillMaxSize()) {
         AmbientBackdrop(accent)
@@ -120,9 +121,9 @@ fun GlassHome(
                 }
             }
 
-            // Tiles: cabin, speed, doors.
+            // Tiles: weather, speed, climate.
             Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent, sweep) }
+                Tile("WEATHER", Modifier.weight(1f)) { WeatherTileBody(accent) }
                 Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState, accent, sweep) }
                 Tile("CLIMATE", Modifier.weight(1f)) { ClimateTileBody(car) }
             }
@@ -134,7 +135,7 @@ fun GlassHome(
                     .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
             ) {
                 LiveMap(fixState, accent, car.night.value, Modifier.fillMaxSize())
-                CarOverlay(fixState, car, accent)
+                CarOverlay(fixState, car, accent) { onRole(Role.MAPS) }
                 CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
                 Row(
                     Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
@@ -441,14 +442,11 @@ private fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: 
 
 /** Reads speed in its own scope so a GPS fix redraws only this overlay, not the whole home. */
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color) {
-    // Parked: the car with its live doors over a dark studio. Moving: the live map.
+private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color, onTap: () -> Unit) {
+    // Parked: the live wireframe car with its real doors over a dark studio. Moving: the live map.
     var forceMap by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val parked = (fixState.value.speedKmh ?: 0) < 5
     val anyOpen = car.driverDoor.value || car.passengerDoor.value || car.boot.value
-    val ctx = LocalContext.current
-    val hasRenders = androidx.compose.runtime.remember { ctx.resources.getIdentifier("car_000", "drawable", ctx.packageName) != 0 }
-    if (!hasRenders) return
     val showCar = anyOpen || (parked && !forceMap)
     androidx.compose.animation.AnimatedVisibility(
         visible = showCar,
@@ -458,7 +456,14 @@ private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: and
     ) {
         Box(Modifier.fillMaxSize().background(Color(0xFF07080A))) {
             AmbientBackdrop(accent)
-            CarHero(car, Modifier.fillMaxSize().padding(bottom = 130.dp, top = 20.dp))
+            WireCar(car, { fixState.value.speedKmh ?: 0 }, accent, onTap, Modifier.fillMaxSize().padding(bottom = 140.dp, top = 10.dp))
+            val open = listOfNotNull(
+                if (car.driverDoor.value) "DRIVER DOOR" else null,
+                if (car.passengerDoor.value) "PASSENGER DOOR" else null,
+                if (car.boot.value) "BOOT" else null,
+            )
+            if (open.isNotEmpty()) T(open.joinToString(" · ") + " OPEN", 20, accent, spacing = 3f, weight = FontWeight.Medium,
+                modifier = Modifier.align(Alignment.TopStart).padding(36.dp))
         }
     }
     if (parked && !anyOpen) {
