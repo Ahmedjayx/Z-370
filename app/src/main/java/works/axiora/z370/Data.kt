@@ -268,9 +268,11 @@ fun rememberPackageTick(): State<Int> {
 // ---------------------------------------------------------------- Dock roles
 
 enum class Role(val label: String, val keywords: List<String>, val path: String) {
+    // Android Auto for the Samsung phone (zlink on this unit runs both Android Auto and CarPlay).
+    // The enum name stays CARPLAY so a previously chosen app is kept.
     CARPLAY(
-        "CARPLAY", listOf("zlink", "carplay", "carlink", "autolink", "easyconnect"),
-        "M4 6h16v10H4z M8 20h8 M12 16v4",
+        "ANDROID AUTO", listOf("zlink", "androidauto", "android auto", "gearhead", "carlink", "autolink", "easyconnect", "carplay"),
+        "M8 3h8v18H8z M11 18h2 M3 9l2.5 2.5L3 14 M21 9l-2.5 2.5L21 14",
     ),
     MAPS(
         "MAPS", listOf("com.google.android.apps.maps", "waze", "maps", "navi"),

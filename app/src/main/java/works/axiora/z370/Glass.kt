@@ -236,7 +236,7 @@ private fun HomePage(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                 ) {
                     LineIcon(role.path, Z.Bright, 40.dp, 1.6f)
-                    T(role.label, 16, Z.Bright, spacing = 3f)
+                    T(role.label, 16, Z.Bright, spacing = if (role.label.length > 8) 1f else 3f)
                 }
             }
             Column(
