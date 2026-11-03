@@ -111,12 +111,12 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
                 drawArc(Color.White.copy(alpha = 0.10f), 135f, 270f, false, tl, sz, style = Stroke(18f, cap = StrokeCap.Round))
                 // Numbers every 40 (in the chosen unit's scale).
                 val paint = android.graphics.Paint().apply {
-                    isAntiAlias = true; textSize = 34f; textAlign = android.graphics.Paint.Align.CENTER
+                    isAntiAlias = true; textSize = r * 0.105f; textAlign = android.graphics.Paint.Align.CENTER
                     color = android.graphics.Color.argb(200, 230, 233, 238)
                 }
                 for (v in 0..GAUGE_MAX.toInt() step 40) {
                     val a = Math.toRadians((135.0 + 270.0 * v / GAUGE_MAX))
-                    val rt = r - 110f
+                    val rt = r * 0.70f
                     val label = if (Cfg.mph.value) (v / 1.609f).toInt().toString() else v.toString()
                     drawContext.canvas.nativeCanvas.drawText(label, center.x + rt * cos(a).toFloat(), center.y + rt * sin(a).toFloat() + 12f, paint)
                 }
