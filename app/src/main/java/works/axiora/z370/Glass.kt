@@ -210,7 +210,7 @@ private fun HomePage(
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
         Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             when (Cfg.leftTile.value) {
-                "cabin" -> Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent, sweep) }
+                "fuel", "cabin" -> Tile("FUEL", Modifier.weight(1f)) { FuelTileBody(car, accent) }
                 "doors" -> Tile("DOORS", Modifier.weight(1f)) { DoorsTileBody(car, accent) }
                 "steering" -> Tile("STEERING", Modifier.weight(1f)) { SteeringTileBody(car, accent) }
                 else -> Tile("WEATHER", Modifier.weight(1f)) { WeatherTileBody(accent) }
@@ -438,6 +438,19 @@ private fun SteeringReadout(car: CarState) {
         T("%+d°".format(deg), 24, Color(0xFFB8BDC5))
         Spacer(Modifier.width(24.dp))
     }
+}
+
+@Composable
+fun androidx.compose.foundation.layout.ColumnScope.FuelTileBody(car: CarState, accent: Color) {
+    val pct = car.fuelPct.value
+    val range = car.rangeKm.value
+    Row(verticalAlignment = Alignment.Bottom) {
+        T(range?.let { if (Cfg.mph.value) (it / 1.609f).toInt().toString() else it.toString() } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
+        Spacer(Modifier.width(10.dp))
+        T(if (Cfg.mph.value) "MI" else "KM", 20, Color(0xFFDDE1E6), spacing = 4f, modifier = Modifier.padding(bottom = 16.dp))
+    }
+    T(if (pct != null) "RANGE · TANK $pct%" else "RANGE", 20, Color(0xFFDDE1E6), spacing = 2f)
+    Bar((pct ?: 0) / 100f, if ((pct ?: 100) <= 12) Color(0xFFFF3B2F) else accent)
 }
 
 @Composable

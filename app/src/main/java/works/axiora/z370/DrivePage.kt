@@ -58,7 +58,7 @@ fun DrivePage(fixState: State<Fix>, car: CarState, accent: Color) {
             Card(Modifier.weight(1f).fillMaxHeight(), "HEADING") { HeadingBody(fixState, accent) }
             Card(Modifier.weight(1f).fillMaxHeight(), "STEERING") { SteeringBody(car, accent) }
         }
-        Card(Modifier.fillMaxWidth(), "TRIP") { TripBody() }
+        Card(Modifier.fillMaxWidth(), "TRIP") { TripBody(car.rangeKm) }
         Card(Modifier.fillMaxWidth(), "PERFORMANCE") { PerfBody(accent) }
     }
 }
@@ -178,7 +178,7 @@ private fun SteeringBody(car: CarState, accent: Color) {
 }
 
 @Composable
-private fun TripBody() {
+private fun TripBody(rangeState: androidx.compose.runtime.State<Int?>? = null) {
     val km = Trip.km.floatValue
     val min = Trip.minutes.intValue
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -187,6 +187,7 @@ private fun TripBody() {
         Stat("TIME", "%d:%02d".format(min / 60, min % 60))
         Stat("AVERAGE", Cfg.speed(Trip.avgKmh.intValue.takeIf { it > 0 }), Cfg.speedUnit)
         Stat("TOP", Cfg.speed(Trip.maxKmh.intValue.takeIf { it > 0 }), Cfg.speedUnit)
+        rangeState?.value?.let { Stat("RANGE", if (Cfg.mph.value) (it / 1.609f).toInt().toString() else it.toString(), if (Cfg.mph.value) "MI" else "KM") }
     }
     Spacer(Modifier.height(2.dp))
     T("A new trip starts after 30 minutes parked.", 18, Muted)

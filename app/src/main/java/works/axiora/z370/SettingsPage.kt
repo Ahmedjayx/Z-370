@@ -116,7 +116,7 @@ fun SettingsPage(
         Section("HOME", "What the home screen shows.")
         T("LEFT TILE", 16, Muted, spacing = 3f, modifier = Modifier.padding(start = 8.dp))
         Options(
-            listOf(Triple("weather", "Weather", "Open-Meteo"), Triple("steering", "Steering", "CAN angle"), Triple("doors", "Doors", "Top view"), Triple("cabin", "Cabin", "Unreliable")),
+            listOf(Triple("weather", "Weather", "Open-Meteo"), Triple("steering", "Steering", "CAN angle"), Triple("doors", "Doors", "Top view"), Triple("fuel", "Fuel", "Range + tank")),
             Cfg.leftTile.value, accent,
         ) { Cfg.put(Cfg.leftTile, "leftTile", it) }
 

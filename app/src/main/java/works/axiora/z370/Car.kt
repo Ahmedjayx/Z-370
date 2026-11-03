@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
  *   0x28 byte 0 : doors, bit 0x40 driver, 0x80 passenger, 0x08 boot
  *   0x29        : steering angle, signed 16-bit little-endian, tenths of a degree
  *   0x55        : climate, bytes 0/1 left/right set temp in half degrees, byte 2 fan
- *   0x6B byte 4 : cabin temperature in half degrees
+ *   0x6B byte 0 : fuel level %, bytes 4–5 range km (0x0FFF unknown)
  * Reverse comes as its own start/end broadcast; headlights only as the firmware's night switch (rw.out.dark).
  */
 class CarState {
@@ -32,7 +32,11 @@ class CarState {
     val btPlaying = mutableStateOf(false)
     val outsideTemp = mutableStateOf<String?>(null)
     val steeringDeg = mutableStateOf<Float?>(null)
-    val cabinC = mutableStateOf<Float?>(null)
+    val cabinC = mutableStateOf<Float?>(null)   // no longer decoded: 0x6B byte 4 turned out to be range
+    /** Fuel level, percent (0x6B byte 0). Rises slowly after ignition as the gauge settles, like the cluster. */
+    val fuelPct = mutableStateOf<Int?>(null)
+    /** Distance to empty, km (0x6B bytes 4–5, little-endian; 0x0FFF = not available yet). */
+    val rangeKm = mutableStateOf<Int?>(null)
     val setTempL = mutableStateOf<Float?>(null)
     val setTempR = mutableStateOf<Float?>(null)
     /** Fan level, low nibble of 0x55 byte 2 (0x12 read as fan 2 on screen). Inferred from one session. */
@@ -70,10 +74,12 @@ class CarState {
                 if (len >= 3) fan.value = b(2) and 0x0F
             }
             // 0xFF (with byte 5 set) is the box's "no reading" marker: show nothing rather than 127.5°.
+            // Drive of 3 Nov: bytes 4–5 counted 360 → 359 → 358 km while driving (range), and were 0x0FFF
+            // before the trip computer had a figure. Byte 0 = 73 with that range fits fuel percent on a 72 L tank.
             0x6B -> if (len >= 6) {
-                val raw = b(4)
-                val v = raw / 2f
-                cabinC.value = if (raw == 0xFF || b(5) != 0 || v < 0f || v > 60f) null else v
+                fuelPct.value = b(0).takeIf { it in 0..100 }
+                val r = b(4) or (b(5) shl 8)
+                rangeKm.value = r.takeIf { it in 1..1500 }
             }
         }
     }
