@@ -158,6 +158,7 @@ fun SettingsPage(
                     T(role.label, 20, Soft, spacing = 3f, modifier = Modifier.width(170.dp))
                     T(
                         if (role == Role.MUSIC && Prefs.rolePkg(ctx, Role.MUSIC) == null) "Bluetooth music"
+                        else if (role == Role.CARPLAY && Prefs.rolePkg(ctx, Role.CARPLAY) == null) "zlink (Android Auto)"
                         else resolved[role]?.label ?: "Not set", 30, Z.Bright, Condensed, FontWeight.Medium, modifier = Modifier.weight(1f),
                     )
                     LineIcon("M9 6l6 6-6 6", Muted, 30.dp, 2f)

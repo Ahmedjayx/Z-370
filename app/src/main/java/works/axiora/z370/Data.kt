@@ -235,6 +235,23 @@ fun loadApps(ctx: Context): List<AppEntry> {
         .sortedBy { it.label.lowercase() }
 }
 
+/**
+ * Android Auto on this unit lives inside zlink (com.zjinnova.zlink), whose launcher icon the
+ * firmware hides, so it never shows in the app list. Open its Android Auto screen directly, then
+ * its main page, before giving up.
+ */
+fun openAndroidAuto(ctx: Context): Boolean {
+    val tries = listOf(
+        Intent().setClassName("com.zjinnova.zlink", "com.zjinnova.zlink.features.launcher.AutoActivity"),
+        Intent("zjinnova.android.intent.action.ZLINK_MAIN").setPackage("com.zjinnova.zlink"),
+        Intent().setClassName("com.zjinnova.zlink", "com.zjinnova.zlink.features.main.MainActivity"),
+    )
+    for (i in tries) {
+        try { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true } catch (_: Exception) {}
+    }
+    return false
+}
+
 fun launchApp(ctx: Context, pkg: String): Boolean = try {
     val i = ctx.packageManager.getLaunchIntentForPackage(pkg)
     if (i != null) {
@@ -275,7 +292,7 @@ enum class Role(val label: String, val keywords: List<String>, val path: String)
     // Android Auto for the Samsung phone (zlink on this unit runs both Android Auto and CarPlay).
     // The enum name stays CARPLAY so a previously chosen app is kept.
     CARPLAY(
-        "ANDROID AUTO", listOf("zlink", "androidauto", "android auto", "gearhead", "carlink", "autolink", "easyconnect", "carplay"),
+        "ANDROID AUTO", listOf("zlink", "androidauto", "android auto", "gearhead"),
         "M8 3h8v18H8z M11 18h2 M3 9l2.5 2.5L3 14 M21 9l-2.5 2.5L21 14",
     ),
     MAPS(

@@ -177,6 +177,8 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                 if (role == Role.MUSIC && Prefs.rolePkg(ctx, Role.MUSIC) == null) {
                     BtControl.openBtMusic(ctx); return@open
                 }
+                // Android Auto: zlink, opened directly (its icon is hidden), unless you picked an app.
+                if (role == Role.CARPLAY && Prefs.rolePkg(ctx, Role.CARPLAY) == null && openAndroidAuto(ctx)) return@open
                 val app = resolved[role]
                 if (app == null || !launchApp(ctx, app.pkg)) {
                     assignRole = role; drawer = true
