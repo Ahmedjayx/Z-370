@@ -133,12 +133,12 @@ fun GlassHome(
                     .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp))
                     .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
             ) {
-                LiveMap(fixState, accent, Modifier.fillMaxSize())
+                LiveMap(fixState, accent, car.night.value, Modifier.fillMaxSize())
                 CarOverlay(fixState, car, accent)
                 CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
                 Row(
                     Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
-                        .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0x55050506)).padding(horizontal = 30.dp),
+                        .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0xB3050506)).padding(horizontal = 30.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                 ) {

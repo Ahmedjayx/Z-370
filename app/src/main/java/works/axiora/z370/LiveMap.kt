@@ -28,13 +28,15 @@ import org.maplibre.android.maps.MapView
 
 /** OpenFreeMap: free OpenStreetMap vector tiles, no account or key. Dark style to sit under the glass. */
 const val MAP_STYLE = "https://tiles.openfreemap.org/styles/dark"
+/** Light, low-colour style for daytime: readable in direct sun. */
+const val MAP_STYLE_DAY = "https://tiles.openfreemap.org/styles/positron"
 
 /**
  * A live map that follows the car, heading-up. The position puck is drawn by us at the centre,
  * since the camera always keeps the car there. Tapping the card opens the real navigation app.
  */
 @Composable
-fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifier: Modifier) {
+fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, night: Boolean, modifier: Modifier) {
     val ctx = LocalContext.current
     val mapView = remember {
         MapLibre.getInstance(ctx.applicationContext)
@@ -62,14 +64,6 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
         owner.lifecycle.addObserver(obs)
         mapView.getMapAsync { map ->
             holder[0] = map
-            map.setStyle(MAP_STYLE) { style ->
-                // Drop what a glanceable driving map doesn't need: buildings, points of interest,
-                // house numbers. Roads, water, parks, area shading and place names stay.
-                style.layers.map { it.id }.filter { id ->
-                    val l = id.lowercase()
-                    listOf("building", "poi", "housenumber", "aeroway", "mountain").any { l.contains(it) }
-                }.forEach { style.removeLayer(it) }
-            }
             map.setPrefetchesTiles(false)
             map.uiSettings.apply {
                 isLogoEnabled = false
@@ -83,6 +77,19 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
             owner.lifecycle.removeObserver(obs)
             mapView.onStop()
             mapView.onDestroy()
+        }
+    }
+
+    // Day: light map that stays readable in the sun. Night (headlights on): dark map.
+    LaunchedEffect(night, holder[0] != null) {
+        while (holder[0] == null) kotlinx.coroutines.delay(200)
+        holder[0]!!.setStyle(if (night) MAP_STYLE else MAP_STYLE_DAY) { style ->
+            // Drop what a glanceable driving map doesn't need: buildings, points of interest,
+            // house numbers. Roads, water, parks, area shading and place names stay.
+            style.layers.map { it.id }.filter { id ->
+                val l = id.lowercase()
+                listOf("building", "poi", "housenumber", "aeroway", "mountain").any { l.contains(it) }
+            }.forEach { style.removeLayer(it) }
         }
     }
 
