@@ -222,7 +222,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
             }
             if (probe) ProbeScreen(accent = accent, onClose = { probe = false; Prefs.setProbeOpen(ctx, false) })
             // Headlights on: dim everything to sit with the gauges at night. Draw-only, touches pass through.
-            if (car.night.value) Box(Modifier.fillMaxSize().background(Color(0x66000000)))
+            // No extra dimming here: the unit already lowers its backlight with the headlights.
         }
     }
 }

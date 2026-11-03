@@ -58,7 +58,7 @@ fun Modifier.glass(shape: Shape, strength: Float = 1f) = this
     .clip(shape)
     .background(
         Brush.linearGradient(
-            listOf(Color.White.copy(alpha = 0.15f * strength), Color.White.copy(alpha = 0.03f * strength)),
+            listOf(Color.White.copy(alpha = 0.20f * strength), Color.White.copy(alpha = 0.06f * strength)),
             start = Offset.Zero, end = Offset(700f, 1000f),
         ),
     )
@@ -149,15 +149,15 @@ fun GlassHome(
                         if (arrow != null) Image(arrow, null, Modifier.size(64.dp)) else LineIcon("M9 6l6 6-6 6", Z.Bright, 48.dp, 2.2f)
                         Column(Modifier.weight(1f)) {
                             T(step.title, 38, Z.Bright, Condensed, FontWeight.Medium)
-                            T(listOfNotNull(step.text.ifBlank { null }, step.sub).joinToString(" · "), 20, Color(0xFFC3C8CF))
+                            T(listOfNotNull(step.text.ifBlank { null }, step.sub).joinToString(" · "), 20, Color(0xFFDDE1E6))
                         }
                     } else {
                         LineIcon("M3 11l18-8-8 18-2-8z", accent, 40.dp, 2f)
                         Column(Modifier.weight(1f)) {
-                            T("NAVIGATION", 18, Color(0xFFC3C8CF), spacing = 3f)
+                            T("NAVIGATION", 18, Color(0xFFDDE1E6), spacing = 3f)
                             T(resolved[Role.MAPS]?.label ?: "Choose a maps app", 38, Z.Bright, Condensed, FontWeight.Medium)
                         }
-                        T("TAP TO OPEN", 18, Color(0xFFC3C8CF), spacing = 2f)
+                        T("TAP TO OPEN", 18, Color(0xFFDDE1E6), spacing = 2f)
                     }
                 }
             }
@@ -189,7 +189,7 @@ private fun Tile(label: String, modifier: Modifier, content: @Composable android
         modifier.fillMaxHeight().glass(RoundedCornerShape(48.dp)).padding(32.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        T(label, 18, Color(0xFFC3C8CF), spacing = 4f)
+        T(label, 18, Color(0xFFDDE1E6), spacing = 4f)
         content()
     }
 }
@@ -280,7 +280,7 @@ private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             T(title ?: "Nothing playing", 46, Z.Bright, Condensed, FontWeight.Medium)
-            T(subtitle, 22, Color(0xFFC3C8CF))
+            T(subtitle, 22, Color(0xFFDDE1E6))
         }
         // Phone music only plays once the unit's Bluetooth app is the audio source, so with
         // nothing playing, play first switches to it (opens its music page), then starts playback.
@@ -354,11 +354,11 @@ private fun SpeedTileBody(fixState: androidx.compose.runtime.State<Fix>, accent:
     Row(verticalAlignment = Alignment.Bottom) {
         T(kmh?.toString() ?: "--", 110, Z.Bright, Condensed, FontWeight.Light)
         Spacer(Modifier.width(10.dp))
-        T("KM/H", 20, Color(0xFFC3C8CF), spacing = 4f, modifier = Modifier.padding(bottom = 18.dp))
+        T("KM/H", 20, Color(0xFFDDE1E6), spacing = 4f, modifier = Modifier.padding(bottom = 18.dp))
     }
     val km = Trip.km.floatValue
     val min = Trip.minutes.intValue
-    T(if (km < 0.05f && min == 0) "TRIP —" else "TRIP %.1f KM · %d:%02d".format(km, min / 60, min % 60), 20, Color(0xFFC3C8CF), spacing = 1f)
+    T(if (km < 0.05f && min == 0) "TRIP —" else "TRIP %.1f KM · %d:%02d".format(km, min / 60, min % 60), 20, Color(0xFFDDE1E6), spacing = 1f)
     Bar(if (s >= 0f) s else ((kmh ?: 0) / 260f).coerceIn(0f, 1f), accent)
 }
 
@@ -404,7 +404,7 @@ private fun CallCard(car: CarState, accent: Color, modifier: Modifier) {
         Column(Modifier.weight(1f)) {
             T(when (st) { 5 -> "INCOMING CALL"; 4 -> "CALLING"; else -> "ON CALL" }, 18, accent, spacing = 3f, weight = FontWeight.Medium)
             T(who, 46, Z.Bright, Condensed, FontWeight.Medium)
-            if (car.callName.value != null && car.callNumber.value != null) T(car.callNumber.value!!, 20, Color(0xFFC3C8CF))
+            if (car.callName.value != null && car.callNumber.value != null) T(car.callNumber.value!!, 20, Color(0xFFDDE1E6))
         }
         if (st == 5) {
             Box(
@@ -427,7 +427,7 @@ private fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: Ca
         if (car.passengerDoor.value) "Passenger" else null,
         if (car.boot.value) "Boot" else null,
     )
-    T(if (open.isEmpty()) "All closed" else open.joinToString(" · ") + " open", 20, if (open.isEmpty()) Color(0xFFC3C8CF) else accent)
+    T(if (open.isEmpty()) "All closed" else open.joinToString(" · ") + " open", 20, if (open.isEmpty()) Color(0xFFDDE1E6) else accent)
 }
 
 @Composable
@@ -435,8 +435,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: 
     val l = car.setTempL.value
     val r = car.setTempR.value
     T(if (l == null) "--" else if (r == null || r == l) "%.1f°".format(l) else "%.0f° · %.0f°".format(l, r), 72, Z.Bright, Condensed, FontWeight.Light)
-    T(car.fan.value?.let { "FAN $it" } ?: "FAN --", 22, Color(0xFFC3C8CF), spacing = 3f)
-    car.outsideTemp.value?.let { T(it.replace("℃", "°") + " OUTSIDE", 18, Color(0xFFC3C8CF), spacing = 1f) }
+    T(car.fan.value?.let { "FAN $it" } ?: "FAN --", 22, Color(0xFFDDE1E6), spacing = 3f)
+    car.outsideTemp.value?.let { T(it.replace("℃", "°") + " OUTSIDE", 18, Color(0xFFDDE1E6), spacing = 1f) }
 }
 
 /** Reads speed in its own scope so a GPS fix redraws only this overlay, not the whole home. */

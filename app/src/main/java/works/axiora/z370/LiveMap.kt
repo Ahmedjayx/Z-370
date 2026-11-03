@@ -40,7 +40,7 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
         MapLibre.getInstance(ctx.applicationContext)
         // Render at 1x pixel density (the unit's screen is far denser than a map card needs) and
         // cap at 24 fps: together several times less GPU work, and steadier on this Snapdragon.
-        val opts = org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(ctx).pixelRatio(1.0f)
+        val opts = org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(ctx).pixelRatio(minOf(ctx.resources.displayMetrics.density, 1.5f))
         MapView(ctx, opts).apply {
             onCreate(null)
             setMaximumFps(24)
@@ -64,10 +64,10 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
             holder[0] = map
             map.setStyle(MAP_STYLE) { style ->
                 // Drop what a glanceable driving map doesn't need: buildings, points of interest,
-                // house numbers, land cover and most labels. Roads, water and road names stay.
+                // house numbers. Roads, water, parks, area shading and place names stay.
                 style.layers.map { it.id }.filter { id ->
                     val l = id.lowercase()
-                    listOf("building", "poi", "housenumber", "landcover", "landuse", "aeroway", "park", "place_", "mountain", "boundary").any { l.contains(it) }
+                    listOf("building", "poi", "housenumber", "aeroway", "mountain").any { l.contains(it) }
                 }.forEach { style.removeLayer(it) }
             }
             map.setPrefetchesTiles(false)
