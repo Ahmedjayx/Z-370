@@ -1,0 +1,35 @@
+name: Page screenshots
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Fetch Barlow fonts
+        run: |
+          mkdir -p app/src/main/res/font
+          base=https://raw.githubusercontent.com/google/fonts/main/ofl
+          curl -fsSL $base/barlow/Barlow-Regular.ttf -o app/src/main/res/font/barlow_regular.ttf
+          curl -fsSL $base/barlow/Barlow-Medium.ttf -o app/src/main/res/font/barlow_medium.ttf
+          curl -fsSL $base/barlowcondensed/BarlowCondensed-Light.ttf -o app/src/main/res/font/barlow_condensed_light.ttf
+          curl -fsSL $base/barlowcondensed/BarlowCondensed-Medium.ttf -o app/src/main/res/font/barlow_condensed_medium.ttf
+      - name: Render pages
+        run: gradle :app:testDebugUnitTest --no-daemon --tests 'works.axiora.z370.PageShots' || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots
+          path: |
+            app/build/shots/*.png
+            app/build/reports/tests/
