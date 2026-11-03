@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,11 +54,12 @@ fun DrivePage(fixState: State<Fix>, car: CarState, accent: Color) {
         Box(Modifier.weight(1f).fillMaxWidth().glass(RoundedCornerShape(56.dp)), contentAlignment = Alignment.Center) {
             SpeedFace(fixState, accent)
         }
-        Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Row(Modifier.fillMaxWidth().height(250.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Card(Modifier.weight(1f).fillMaxHeight(), "HEADING") { HeadingBody(fixState, accent) }
             Card(Modifier.weight(1f).fillMaxHeight(), "STEERING") { SteeringBody(car, accent) }
         }
         Card(Modifier.fillMaxWidth(), "TRIP") { TripBody() }
+        Card(Modifier.fillMaxWidth(), "PERFORMANCE") { PerfBody(accent) }
     }
 }
 
@@ -75,9 +77,9 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
 
     when (Cfg.driveFace.value) {
         "numbers" -> Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            T(Cfg.speed(kmh), 380, if (over) warnColor else Z.Bright, Condensed, FontWeight.Light)
+            T(Cfg.speed(kmh), 300, if (over) warnColor else Z.Bright, Condensed, FontWeight.Light)
             T(Cfg.speedUnit, 30, Soft, spacing = 10f)
-            Box(Modifier.padding(top = 30.dp).size(760.dp, 14.dp)) {
+            Box(Modifier.padding(top = 20.dp).size(760.dp, 14.dp)) {
                 Canvas(Modifier.fillMaxSize()) {
                     drawLine(Color.White.copy(alpha = 0.14f), Offset(0f, size.height / 2), Offset(size.width, size.height / 2), size.height, StrokeCap.Round)
                     drawLine(if (over) warnColor else accent, Offset(0f, size.height / 2), Offset(size.width * shown.coerceAtLeast(0.01f), size.height / 2), size.height, StrokeCap.Round)
@@ -92,9 +94,9 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
             T(Cfg.speed(kmh), 300, if (over) warnColor.copy(alpha = 0.6f + 0.4f * pulse) else Color(0xFFB8BDC5), Condensed, FontWeight.Light)
             T(Cfg.speedUnit, 24, Muted, spacing = 10f)
         }
-        else -> Box(Modifier.size(820.dp), contentAlignment = Alignment.Center) {
+        else -> Box(Modifier.fillMaxHeight().aspectRatio(1f), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val inset = 40f
+                val inset = 24f
                 val r = size.minDimension / 2 - inset
                 val tl = Offset(center.x - r, center.y - r); val sz = Size(r * 2, r * 2)
                 // Ticks every 20 km/h, labels every 40.
@@ -125,7 +127,7 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
                 if (over) drawCircle(warnColor.copy(alpha = 0.10f * pulse), r - 60f, center)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                T(Cfg.speed(kmh), 260, if (over) warnColor else Z.Bright, Condensed, FontWeight.Light)
+                T(Cfg.speed(kmh), 200, if (over) warnColor else Z.Bright, Condensed, FontWeight.Light)
                 T(Cfg.speedUnit, 28, Soft, spacing = 10f)
             }
         }
@@ -136,7 +138,7 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
 private fun HeadingBody(fixState: State<Fix>, accent: Color) {
     val b = fixState.value.bearing
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-        Canvas(Modifier.size(170.dp)) {
+        Canvas(Modifier.size(140.dp)) {
             val c = center; val r = size.minDimension / 2 - 6f
             drawCircle(Color.White.copy(alpha = 0.35f), r, c, style = Stroke(3f))
             for (i in 0 until 8) rotate(i * 45f, c) {
@@ -148,7 +150,7 @@ private fun HeadingBody(fixState: State<Fix>, accent: Color) {
             }
         }
         Column {
-            T(if (b == null) "--" else Cardinal[(((b + 22.5f) % 360f) / 45f).toInt() % 8], 96, Z.Bright, Condensed, FontWeight.Light)
+            T(if (b == null) "--" else Cardinal[(((b + 22.5f) % 360f) / 45f).toInt() % 8], 84, Z.Bright, Condensed, FontWeight.Light)
             T(if (b == null) "NO GPS HEADING" else "%03d°".format(b.toInt()), 22, Soft, spacing = 3f)
         }
     }
@@ -159,7 +161,7 @@ private fun SteeringBody(car: CarState, accent: Color) {
     val a = car.steeringDeg.value
     val shown by animateFloatAsState(a ?: 0f, tween(120), label = "steer")
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-        Canvas(Modifier.size(170.dp)) {
+        Canvas(Modifier.size(140.dp)) {
             val c = center; val r = size.minDimension / 2 - 8f
             rotate(-shown, c) {
                 drawCircle(Color.White.copy(alpha = 0.85f), r, c, style = Stroke(10f))
@@ -169,7 +171,7 @@ private fun SteeringBody(car: CarState, accent: Color) {
             }
         }
         Column {
-            T(a?.let { "%d°".format(kotlin.math.abs(it.toInt())) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
+            T(a?.let { "%d°".format(kotlin.math.abs(it.toInt())) } ?: "--", 84, Z.Bright, Condensed, FontWeight.Light)
             T(if (a == null) "WAITING FOR CAN" else if (kotlin.math.abs(a) < 3f) "CENTRED" else if (a > 0) "LEFT" else "RIGHT", 22, Soft, spacing = 3f)
         }
     }

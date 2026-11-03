@@ -52,6 +52,7 @@ class CarState {
         if (raw.size < 4 + len) return
         fun b(i: Int) = raw[4 + i].toInt() and 0xFF
         live.value = true
+        DriveLog.onFrame(type, (0 until len).joinToString(" ") { "%02X".format(b(it)) })
         when (type) {
             0x28 -> if (len >= 1) {
                 driverDoor.value = b(0) and 0x40 != 0

@@ -67,6 +67,7 @@ class WireModel(
         val hinge: FloatArray?,      // door / boot hinge point
         val axis: FloatArray,
         val openDeg: Float,
+        val lamp: String?,           // "front" / "rear" lamp glass, filled when the lights are on
     )
 
     companion object {
@@ -100,6 +101,7 @@ class WireModel(
                     p.getString("name"), p.getInt("faceStart"), p.getInt("faceCount"), p.getInt("edgeStart"), p.getInt("edgeCount"),
                     arr(p, "pivot"), p.optDouble("radius", 0.34).toFloat(), arr(p, "hinge"),
                     arr(p, "axis") ?: floatArrayOf(0f, 0f, 1f), p.optDouble("open", 0.0).toFloat(),
+                    p.optString("lamp").ifEmpty { null },
                 )
             }
             val minX = mn.getDouble(0).toFloat(); val minZ = mn.getDouble(2).toFloat()
@@ -118,6 +120,11 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
     @Volatile var accent = floatArrayOf(1f, 0.35f, 0.12f, 1f)
     /** Which hinged parts are open: door_FL (driver), door_FR (passenger), trunk. */
     @Volatile var open: Set<String> = emptySet()
+    /** Headlights on (the firmware's night switch): lamps fill and glow. */
+    @Volatile var lights = false
+    @Volatile var reverse = false
+    /** Steering-wheel angle, degrees, positive = left; the front wheels turn by it over the rack ratio. */
+    @Volatile var steeringDeg = 0f
     @Volatile private var revealStart = 0L
 
     fun replay() { revealStart = SystemClock.uptimeMillis(); onNeedsFrame() }
@@ -148,6 +155,9 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
     private val vbo = IntArray(3)
     private var wheelAngle = 0f
     private val openNow = HashMap<String, Float>()
+    private var lightNow = 0f
+    private var reverseNow = 0f
+    private var steerNow = 0f
     private var lastT = 0L
 
     fun onSurfaceCreated() {
@@ -228,6 +238,18 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
             if (next != goal) animating = true
         }
 
+        // Lights fade in and out like real bulbs; front wheels follow the steering (rack ~15:1).
+        fun ease(cur: Float, goal: Float, rate: Float): Float {
+            val n = if (goal > cur) minOf(goal, cur + dt * rate) else max(goal, cur - dt * rate)
+            if (n != goal) animating = true
+            return n
+        }
+        lightNow = ease(lightNow, if (lights) 1f else 0f, 3f)
+        reverseNow = ease(reverseNow, if (reverse) 1f else 0f, 4f)
+        val steerGoal = (steeringDeg / 15f).coerceIn(-34f, 34f)
+        steerNow += (steerGoal - steerNow) * 0.25f
+        if (abs(steerGoal - steerNow) > 0.05f) animating = true
+
         // Light-trace reveal: an edge of light runs from tail to nose and the drawing appears behind it.
         val rt = (now - revealStart) / 1000f
         val sweep = 1.6f
@@ -259,6 +281,7 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
             Matrix.setIdentityM(modelM, 0)
             p.pivot?.let { pv ->
                 Matrix.translateM(modelM, 0, pv[0], pv[1], pv[2])
+                if (p.name.startsWith("wheel_F")) Matrix.rotateM(modelM, 0, steerNow, 0f, 1f, 0f)
                 Matrix.rotateM(modelM, 0, Math.toDegrees(wheelAngle.toDouble()).toFloat(), 0f, 0f, 1f)
                 Matrix.translateM(modelM, 0, -pv[0], -pv[1], -pv[2])
             }
@@ -282,11 +305,30 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
             GLES20.glUniform1f(uEdge, 99f)
             GLES20.glBindBuffer(GLES20.GL_ELEMENT_ARRAY_BUFFER, vbo[1])
             GLES20.glDrawElements(GLES20.GL_TRIANGLES, p.faceCount * 3, GLES20.GL_UNSIGNED_SHORT, p.faceStart * 3 * 2)
-            GLES20.glDisable(GLES20.GL_POLYGON_OFFSET_FILL)
             GLES20.glColorMask(true, true, true, true)
 
+            // Lamp glass, lit: a soft additive fill. Tail lamps red, headlamps warm white; reversing whitens the rear.
+            val lit = if (p.lamp == "rear") max(lightNow, reverseNow) else lightNow
+            if (p.lamp != null && lit > 0.01f) {
+                GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE)
+                GLES20.glDepthMask(false)
+                if (p.lamp == "front") GLES20.glUniform4f(uColor, 1f, 0.93f, 0.82f, 0.75f * lit)
+                else {
+                    val w = reverseNow
+                    GLES20.glUniform4f(uColor, 1f, 0.16f + 0.8f * w, 0.08f + 0.8f * w, 0.85f * lit)
+                }
+                GLES20.glDrawElements(GLES20.GL_TRIANGLES, p.faceCount * 3, GLES20.GL_UNSIGNED_SHORT, p.faceStart * 3 * 2)
+                GLES20.glDepthMask(true)
+                GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
+            }
+            GLES20.glDisable(GLES20.GL_POLYGON_OFFSET_FILL)
+
             // Lines: an open door or boot is drawn in the accent.
-            if (p.hinge != null && o > 0f) {
+            if (p.lamp != null && (lightNow > 0.01f || reverseNow > 0.01f)) {
+                val k = if (p.lamp == "rear") max(lightNow, reverseNow) else lightNow
+                val tr = if (p.lamp == "front" || reverseNow > 0.5f) floatArrayOf(1f, 0.97f, 0.9f) else floatArrayOf(1f, 0.42f, 0.32f)
+                GLES20.glUniform4f(uColor, lc[0] + (tr[0] - lc[0]) * k, lc[1] + (tr[1] - lc[1]) * k, lc[2] + (tr[2] - lc[2]) * k, 1f)
+            } else if (p.hinge != null && o > 0f) {
                 val k = o.coerceIn(0f, 1f)
                 GLES20.glUniform4f(uColor, lc[0] + (ac[0] - lc[0]) * k, lc[1] + (ac[1] - lc[1]) * k, lc[2] + (ac[2] - lc[2]) * k, 1f)
             } else GLES20.glUniform4f(uColor, lc[0], lc[1], lc[2], lc[3])
@@ -458,6 +500,9 @@ fun WireCar(car: CarState, speedKmh: () -> Int, accent: Color, onTap: () -> Unit
     }
     val kmh = speedKmh()
     val w = wake.intValue
+    val lights = car.night.value
+    val reverse = car.reverse.value
+    val steer = car.steeringDeg.value ?: 0f
     AndroidView(
         factory = { c -> WireSurface(c, m, onTap).apply { tag = -1 } },
         modifier = modifier,
@@ -467,6 +512,9 @@ fun WireCar(car: CarState, speedKmh: () -> Int, accent: Color, onTap: () -> Unit
             var changed = false
             if (r.open != open) { r.open = open; changed = true }
             if (r.speedKmh != kmh.toFloat()) { r.speedKmh = kmh.toFloat(); changed = true }
+            if (r.lights != lights) { r.lights = lights; changed = true }
+            if (r.reverse != reverse) { r.reverse = reverse; changed = true }
+            if (r.steeringDeg != steer) { r.steeringDeg = steer; changed = true }
             if (v.tag != w) { v.tag = w; r.replay() }
             if (changed) v.requestRender()
         },

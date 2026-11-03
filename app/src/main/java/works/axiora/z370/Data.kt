@@ -70,6 +70,8 @@ object Trip {
     /** Average over time actually moving, km/h. */
     val avgKmh = androidx.compose.runtime.mutableIntStateOf(0)
     private var movingMs = 0L
+    /** Latest GPS speed, for the CAN drive log. */
+    @Volatile var gpsKmh = 0
     private var lastFixMs = 0L
     private var last: android.location.Location? = null
     private var startMs = 0L
@@ -77,6 +79,7 @@ object Trip {
 
     fun onFix(loc: android.location.Location) {
         val now = System.currentTimeMillis()
+        gpsKmh = if (loc.hasSpeed()) (loc.speed * 3.6f).toInt() else 0
         val moving = loc.hasSpeed() && loc.speed > 1.5f
         if (moving) {
             if (startMs == 0L || now - lastMoveMs > 30 * 60_000L) {
@@ -109,6 +112,7 @@ fun rememberGpsFix(granted: Boolean): State<Fix> {
             val bearing = if (loc.hasBearing() && loc.speed > 1.5f) loc.bearing else state.value.bearing
             state.value = Fix(speed, bearing, loc.latitude, loc.longitude)
             Trip.onFix(loc)
+            Perf.onFix(loc)
         }
         var registered = false
         if (granted && lm != null) {

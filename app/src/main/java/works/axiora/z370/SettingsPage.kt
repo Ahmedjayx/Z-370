@@ -106,6 +106,12 @@ fun SettingsPage(
             Cfg.glow.floatValue, accent,
         ) { Cfg.glow.floatValue = it; Cfg.set("glow", it) }
 
+        T("NIGHT (HEADLIGHTS ON)", 16, Muted, spacing = 3f, modifier = Modifier.padding(start = 8.dp, top = 6.dp))
+        Options(
+            listOf(Triple("off", "Same as day", null), Triple("red", "Cluster red", "Red accent, softer glow"), Triple("dim", "Red + dim", "Darker screen")),
+            Cfg.nightTheme.value, accent,
+        ) { Cfg.put(Cfg.nightTheme, "nightTheme", it) }
+
         // ---------------------------------------------------------------- Home
         Section("HOME", "What the home screen shows.")
         T("LEFT TILE", 16, Muted, spacing = 3f, modifier = Modifier.padding(start = 8.dp))
@@ -185,7 +191,9 @@ fun SettingsPage(
                 try { ctx.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
             }
             GlassPill("CAN PROBE", onClick = onProbe)
+            GlassPill("SAVE DRIVE LOG") { DriveLog.save(ctx) }
         }
+        if (DriveLog.status.value.isNotEmpty()) T(DriveLog.status.value, 20, Muted, modifier = Modifier.padding(start = 8.dp))
         val ver = remember { try { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName } catch (_: Exception) { "" } }
         Column(Modifier.padding(start = 8.dp, top = 10.dp, bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             T("Z370 Launcher $ver", 22, Soft)

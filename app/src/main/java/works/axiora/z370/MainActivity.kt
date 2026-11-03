@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 1)
         }
         Cfg.load(this)
+        Perf.load(this)
+        DriveLog.init(this)
         setContent {
             Root(homeSignal = homeSignal.intValue, locationGranted = locationGranted.value)
         }

@@ -21,6 +21,7 @@ object Cfg {
     val bg = mutableStateOf("ink")              // ink | black | navy | warm
     val glass = mutableFloatStateOf(1f)         // 0.6 subtle · 1 normal · 1.5 strong
     val glow = mutableFloatStateOf(1f)          // ambient glow: 0 off · 0.6 low · 1 full
+    val nightTheme = mutableStateOf("red")      // off | red | dim  (with the headlights on)
 
     // Home
     val leftTile = mutableStateOf("weather")    // weather | cabin | steering | doors
@@ -51,6 +52,7 @@ object Cfg {
         bg.value = p.getString("bg", "ink")!!
         glass.floatValue = p.getFloat("glass", 1f)
         glow.floatValue = p.getFloat("glow", 1f)
+        nightTheme.value = p.getString("nightTheme", "red")!!
         leftTile.value = p.getString("leftTile", "weather")!!
         mph.value = p.getBoolean("mph", false)
         fahrenheit.value = p.getBoolean("fahrenheit", false)

@@ -74,11 +74,11 @@ private fun Modifier.glassAt(shape: Shape, strength: Float) = this
     )
 
 @Composable
-fun AmbientBackdrop(accent: Color) {
+fun AmbientBackdrop(accent: Color, night: Boolean = false) {
     Box(
         Modifier.fillMaxSize().background(Cfg.ground).drawBehind {
             val w = size.width; val h = size.height
-            val k = Cfg.glow.floatValue
+            val k = Cfg.glow.floatValue * if (night) 0.55f else 1f
             fun glow(c: Color, alpha: Float, cx: Float, cy: Float, r: Float) {
                 if (k <= 0f) return
                 drawCircle(Brush.radialGradient(listOf(c.copy(alpha = alpha * k), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
@@ -96,7 +96,7 @@ fun AmbientBackdrop(accent: Color) {
 @Composable
 fun AppShell(
     car: CarState,
-    accent: Color,
+    dayAccent: Color,
     locationGranted: Boolean,
     resolved: Map<Role, AppEntry?>,
     onRole: (Role) -> Unit,
@@ -110,9 +110,12 @@ fun AppShell(
     val fixState = rememberGpsFix(locationGranted)
     WeatherUpdater(fixState)
     val page = Cfg.page.value
+    // Night theme: with the headlights on, a deep red accent like the 370Z's own cluster, and optionally dimmer.
+    val night = car.night.value && Cfg.nightTheme.value != "off"
+    val accent = if (night) Color(0xFFE0301E) else dayAccent
 
     Box(Modifier.fillMaxSize()) {
-        AmbientBackdrop(accent)
+        AmbientBackdrop(accent, night)
         Column(
             Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 36.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
@@ -143,6 +146,7 @@ fun AppShell(
 
             TabBar(page, accent)
         }
+        if (night && Cfg.nightTheme.value == "dim") Box(Modifier.fillMaxSize().background(Color(0x47000000)))
     }
 }
 
@@ -370,7 +374,8 @@ fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp: AppEnt
                 .clickable { if (np == null) BtControl.openBtMusic(ctx) else onOpenMusic() },
             contentAlignment = Alignment.Center,
         ) {
-            val art = np?.art
+            val btArt by rememberBtArt(if (np == null) btTitle else null, null)
+            val art = np?.art ?: btArt
             if (art != null) Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             else LineIcon(Role.MUSIC.path, Color.White.copy(alpha = 0.7f), 56.dp, 1.4f)
         }

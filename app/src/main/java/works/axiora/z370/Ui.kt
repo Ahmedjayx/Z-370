@@ -186,7 +186,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
             }
             AppShell(
                 car = car,
-                accent = accent,
+                dayAccent = accent,
                 locationGranted = locationGranted,
                 resolved = resolved,
                 onRole = open,

@@ -66,7 +66,8 @@ fun MediaPage(car: CarState, accent: Color, resolved: Map<Role, AppEntry?>, onRo
                     .background(Brush.linearGradient(listOf(accent, Color(0xFF2A0D06), Color(0xFF0A0B0D)))),
                 contentAlignment = Alignment.Center,
             ) {
-                val art = np?.art
+                val btArt = rememberBtArt(if (np == null) btTitle else null, null).value
+                val art = np?.art ?: btArt
                 if (art != null) Image(art, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                 else LineIcon(Role.MUSIC.path, Color.White.copy(alpha = 0.55f), 200.dp, 1f)
             }
