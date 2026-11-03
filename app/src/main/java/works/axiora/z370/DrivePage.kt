@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
@@ -106,6 +107,17 @@ private fun SpeedFace(fixState: State<Fix>, accent: Color) {
                         Offset(center.x + r2 * cos(a).toFloat(), center.y + r2 * sin(a).toFloat()), if (major) 4f else 2.5f, StrokeCap.Round)
                 }
                 drawArc(Color.White.copy(alpha = 0.10f), 135f, 270f, false, tl, sz, style = Stroke(18f, cap = StrokeCap.Round))
+                // Numbers every 40 (in the chosen unit's scale).
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true; textSize = 34f; textAlign = android.graphics.Paint.Align.CENTER
+                    color = android.graphics.Color.argb(200, 230, 233, 238)
+                }
+                for (v in 0..GAUGE_MAX.toInt() step 40) {
+                    val a = Math.toRadians((135.0 + 270.0 * v / GAUGE_MAX))
+                    val rt = r - 110f
+                    val label = if (Cfg.mph.value) (v / 1.609f).toInt().toString() else v.toString()
+                    drawContext.canvas.nativeCanvas.drawText(label, center.x + rt * cos(a).toFloat(), center.y + rt * sin(a).toFloat() + 12f, paint)
+                }
                 if (shown > 0.002f) {
                     drawArc(accent.copy(alpha = 0.25f), 135f, 270f * shown, false, tl, sz, style = Stroke(44f, cap = StrokeCap.Round))
                     drawArc(if (over) warnColor else accent, 135f, 270f * shown, false, tl, sz, style = Stroke(18f, cap = StrokeCap.Round))

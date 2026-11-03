@@ -73,7 +73,7 @@ fun RowScope.OptionCard(
         Modifier.weight(1f).height(height.dp).glass(shape, if (selected) 1.7f else 1f)
             .then(if (selected) Modifier.border(3.dp, accent, shape) else Modifier)
             .clickable(onClick = onClick).padding(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = if (preview != null) Arrangement.SpaceBetween else Arrangement.Center,
     ) {
         if (preview != null) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { preview() }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

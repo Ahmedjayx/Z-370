@@ -196,7 +196,8 @@ private fun LogCard(accent: Color) {
     Card(Modifier.fillMaxWidth(), "SERVICE LOG") {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ServiceKinds.forEach { k ->
-                GlassPill(k.uppercase(), if (k == kind) accent else null, Modifier.weight(1f)) { kind = k }
+                val short = when (k) { "Oil & filter" -> "OIL"; "Inspection" -> "CHECK"; else -> k.uppercase() }
+                GlassPill(short, if (k == kind) accent else null, Modifier.weight(1f)) { kind = k }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
