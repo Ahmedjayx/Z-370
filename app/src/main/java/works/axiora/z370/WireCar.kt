@@ -56,7 +56,7 @@ class WireModel(
     val faces: ShortBuffer,
     val edges: ShortBuffer,
     val parts: List<Part>,
-    val minX: Float, val maxX: Float, val height: Float,
+    val minX: Float, val maxX: Float, val height: Float, val minZ: Float, val maxZ: Float,
 ) {
     class Part(
         val name: String,
@@ -102,8 +102,11 @@ class WireModel(
                     arr(p, "axis") ?: floatArrayOf(0f, 0f, 1f), p.optDouble("open", 0.0).toFloat(),
                 )
             }
-            val minX = mn.getDouble(0).toFloat()
-            return WireModel(pos, slice(nPos, nIdx), slice(nPos + nIdx, nEdg), parts, minX, minX + sp.getDouble(0).toFloat(), sp.getDouble(1).toFloat())
+            val minX = mn.getDouble(0).toFloat(); val minZ = mn.getDouble(2).toFloat()
+            return WireModel(
+                pos, slice(nPos, nIdx), slice(nPos + nIdx, nEdg), parts,
+                minX, minX + sp.getDouble(0).toFloat(), sp.getDouble(1).toFloat(), minZ, minZ + sp.getDouble(2).toFloat(),
+            )
         }
     }
 }
@@ -176,11 +179,30 @@ class WireRenderer(private val model: WireModel, private val onNeedsFrame: () ->
         GLES20.glViewport(0, 0, w, h)
         aspect = w.toFloat() / max(1, h)
         Matrix.perspectiveM(proj, 0, fov, aspect, 0.3f, 100f)
-        // Fit the car's length to ~80 % of the width, or its height to the view, whichever is tighter.
-        val t = tan(Math.toRadians(fov / 2.0)).toFloat()
-        val len = model.maxX - model.minX
-        dist = max(len * 0.56f / (t * aspect), model.height * 1.9f / t)
+        fit()
     }
+
+    /** Camera distance that just fits the car's box at the home angle, with a margin. */
+    private fun fit() {
+        val ty = tan(Math.toRadians(fov / 2.0)).toFloat(); val tx = ty * aspect
+        val target = floatArrayOf(0f, model.height * 0.42f, 0f)
+        val d = floatArrayOf(sin(homeAz) * cos(homeEl), sin(homeEl), cos(homeAz) * cos(homeEl))
+        val right = norm(floatArrayOf(d[2], 0f, -d[0]))
+        val up = floatArrayOf(d[1] * right[2] - d[2] * right[1], d[2] * right[0] - d[0] * right[2], d[0] * right[1] - d[1] * right[0])
+        var worst = 0f
+        for (cx in 0..1) for (cy in 0..1) for (cz in 0..1) {
+            // corners pulled in a little: a car's bounding box corners are empty air
+            val k = 0.92f
+            val c = floatArrayOf((if (cx == 1) model.maxX else model.minX) * k, (if (cy == 1) model.height else 0f) - target[1], (if (cz == 1) model.maxZ else model.minZ) * k)
+            val depth = c[0] * d[0] + c[1] * d[1] + c[2] * d[2]
+            val sx = abs(c[0] * right[0] + c[1] * right[1] + c[2] * right[2]) / (tx * 0.84f)
+            val sy = abs(c[0] * up[0] + c[1] * up[1] + c[2] * up[2]) / (ty * 0.84f)
+            worst = max(worst, max(sx, sy) + depth)
+        }
+        dist = worst
+    }
+
+    private fun norm(v: FloatArray): FloatArray { val l = kotlin.math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).coerceAtLeast(1e-6f); return floatArrayOf(v[0] / l, v[1] / l, v[2] / l) }
 
     fun onDrawFrame() {
         val now = SystemClock.uptimeMillis()
