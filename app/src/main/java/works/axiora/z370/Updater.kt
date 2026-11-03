@@ -114,9 +114,8 @@ object GithubUpdate {
 }
 
 /**
- * Bluetooth music control on this firmware. The unit's own Bluetooth app (btsuite) ignores Android
- * media keys; it listens for the MCU key broadcast, and also exposes a binder whose sendData() passes
- * raw module commands (MA play/pause, MD next, ME prev). Both are tried.
+ * Bluetooth music control on this firmware. Media keys and btsuite's own key broadcast are ignored;
+ * the working route is the event service's CAN wheel-key broadcast (codes 2 next, 3 prev, 6 play/pause).
  */
 object BtControl {
     /** Opens the unit's Bluetooth music page, which makes phone audio the active source. */
@@ -153,14 +152,15 @@ object BtControl {
             android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> 3 to "ME"
             else -> 6 to "MA"
         }
+        // Confirmed on the car (3 Nov 2026): the event service's wheel-key route. It injects the
+        // media key as the system, so it reaches whatever is playing, Bluetooth music included.
         try {
             ctx.sendBroadcast(
-                Intent("com.szchoiceway.eventcenter.EventUtils.MCU_KEY_INFOR")
-                    .setPackage("com.szchoiceway.btsuite")
-                    .putExtra("EventUtils.MCU_KEY_VALUE", mcuKey),
+                Intent("com.choiceway.eventcenter.EventUtils.ZXW_CAN_KEY_EVT")
+                    .putExtra("com.choiceway.eventcenter.EventUtils.ZXW_CAN_KEY_EVT_EXTRA", mcuKey)
+                    .putExtra("ZXW_CAN_KEY_EVT_EXTRA", mcuKey),
             )
         } catch (_: Exception) {}
-        sendRaw(ctx, raw)
     }
 
     private fun sendRaw(ctx: Context, cmd: String) {
