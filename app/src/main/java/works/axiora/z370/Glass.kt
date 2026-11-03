@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -539,7 +540,7 @@ fun androidx.compose.foundation.layout.ColumnScope.SteeringTileBody(car: CarStat
         Canvas(Modifier.size(96.dp)) {
             val c = center; val r = size.minDimension / 2f - 4f
             drawCircle(Color.White.copy(alpha = 0.6f), r, c, style = Stroke(5f))
-            androidx.compose.ui.graphics.drawscope.rotate(a ?: 0f, c) {
+            rotate(-(a ?: 0f), c) {
                 drawLine(accent, Offset(c.x - r, c.y), Offset(c.x + r, c.y), 5f)
                 drawLine(accent, c, Offset(c.x, c.y + r), 5f)
             }
