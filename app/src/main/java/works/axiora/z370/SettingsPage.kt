@@ -198,7 +198,6 @@ fun SettingsPage(
         Column(Modifier.padding(start = 8.dp, top = 10.dp, bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             T("Z370 Launcher $ver", 22, Soft)
             T("Car model: \"2020 Nissan 370Z Sport Touring\" by Ddiaz Design, CC BY-NC-SA 4.0", 17, Muted)
-            T("Wireframe technique after Celica Dash by Kade (MIT).", 17, Muted)
             T("Weather by Open-Meteo.com.", 17, Muted)
         }
         Spacer(Modifier.height(20.dp))

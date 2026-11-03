@@ -570,10 +570,10 @@ fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: CarState
     car.outsideTemp.value?.let { T(it.replace("℃", "°") + " OUTSIDE", 18, Color(0xFFDDE1E6), spacing = 1f) }
 }
 
-/** The live wireframe car with its real doors and turning wheels. Reads speed in its own scope. */
+/** The rendered 370Z with its live doors and boot. */
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.CarCard(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color, onTap: () -> Unit) {
-    WireCar(car, { fixState.value.speedKmh ?: 0 }, accent, onTap, Modifier.fillMaxSize().padding(top = 40.dp, bottom = 60.dp))
+    CarHero(car, Modifier.fillMaxSize().padding(top = 90.dp, bottom = 30.dp))
     val open = listOfNotNull(
         if (car.driverDoor.value) "DRIVER DOOR" else null,
         if (car.passengerDoor.value) "PASSENGER DOOR" else null,
