@@ -38,7 +38,13 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
     val ctx = LocalContext.current
     val mapView = remember {
         MapLibre.getInstance(ctx.applicationContext)
-        MapView(ctx).apply { onCreate(null) }
+        // Render at 1x pixel density (the unit's screen is far denser than a map card needs) and
+        // cap at 24 fps: together several times less GPU work, and steadier on this Snapdragon.
+        val opts = org.maplibre.android.maps.MapLibreMapOptions.createFromAttributes(ctx).pixelRatio(1.0f)
+        MapView(ctx, opts).apply {
+            onCreate(null)
+            setMaximumFps(24)
+        }
     }
     val holder = remember { arrayOfNulls<MapLibreMap>(1) }
 
@@ -56,7 +62,15 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
         owner.lifecycle.addObserver(obs)
         mapView.getMapAsync { map ->
             holder[0] = map
-            map.setStyle(MAP_STYLE)
+            map.setStyle(MAP_STYLE) { style ->
+                // Drop what a glanceable driving map doesn't need: buildings, points of interest,
+                // house numbers, land cover and most labels. Roads, water and road names stay.
+                style.layers.map { it.id }.filter { id ->
+                    val l = id.lowercase()
+                    listOf("building", "poi", "housenumber", "landcover", "landuse", "aeroway", "park", "place_", "mountain", "boundary").any { l.contains(it) }
+                }.forEach { style.removeLayer(it) }
+            }
+            map.setPrefetchesTiles(false)
             map.uiSettings.apply {
                 isLogoEnabled = false
                 isAttributionEnabled = true
@@ -73,7 +87,7 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
     }
 
     // Follow the car, heading-up, flat (no 3D tilt: much lighter on this GPU). Moves the camera at most
-    // every 1.5 s and only when the car moved ~15 m or turned ~8°, instead of on every GPS fix.
+    // every 2 s and only when the car moved ~15 m or turned ~8°, instead of on every GPS fix.
     LaunchedEffect(Unit) {
         var lastLat = 0.0; var lastLon = 0.0; var lastBearing = 0f
         androidx.compose.runtime.snapshotFlow { fixState.value }.collect { fix ->
@@ -91,8 +105,9 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, modifi
                 .bearing(bearing.toDouble())
                 .tilt(0.0)
                 .build()
-            map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 1200)
-            kotlinx.coroutines.delay(1500)
+            // Linear glide that lasts until the next update: continuous, even motion, no stop-start.
+            map.easeCamera(CameraUpdateFactory.newCameraPosition(pos), 2000, false)
+            kotlinx.coroutines.delay(2000)
         }
     }
 
