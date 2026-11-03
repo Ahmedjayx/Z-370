@@ -67,7 +67,12 @@ class CarState {
                 setTempR.value = b(1) / 2f
                 if (len >= 3) fan.value = b(2) and 0x0F
             }
-            0x6B -> if (len >= 5) cabinC.value = b(4) / 2f
+            // 0xFF (with byte 5 set) is the box's "no reading" marker: show nothing rather than 127.5°.
+            0x6B -> if (len >= 6) {
+                val raw = b(4)
+                val v = raw / 2f
+                cabinC.value = if (raw == 0xFF || b(5) != 0 || v < 0f || v > 60f) null else v
+            }
         }
     }
 
