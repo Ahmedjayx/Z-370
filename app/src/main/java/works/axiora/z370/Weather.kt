@@ -112,15 +112,15 @@ fun WeatherUpdater(fixState: State<Fix>) {
 fun ColumnScope.WeatherTileBody(accent: Color) {
     val w = WeatherRepo.now.value
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        T(w?.let { "%.0f°".format(it.tempC) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
+        T(Cfg.temp(w?.tempC), 96, Z.Bright, Condensed, FontWeight.Light)
         if (w != null) LineIcon(WeatherRepo.icon(w.code, w.isDay), accent, 54.dp, 1.8f)
     }
     T(w?.let { WeatherRepo.label(it.code).uppercase() } ?: "WAITING FOR WEATHER", 20, Color(0xFFDDE1E6), spacing = 2f)
     if (w?.hiC != null && w.loC != null) {
         Row {
-            T("H %.0f°".format(w.hiC), 20, Color(0xFFDDE1E6), spacing = 1f)
+            T("H " + Cfg.temp(w.hiC), 20, Color(0xFFDDE1E6), spacing = 1f)
             Spacer(Modifier.width(18.dp))
-            T("L %.0f°".format(w.loC), 20, Color(0xFFDDE1E6), spacing = 1f)
+            T("L " + Cfg.temp(w.loC), 20, Color(0xFFDDE1E6), spacing = 1f)
         }
     }
 }

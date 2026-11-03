@@ -96,23 +96,25 @@ fun LiveMap(fixState: androidx.compose.runtime.State<Fix>, accent: Color, night:
     // Follow the car, heading-up, flat (no 3D tilt: much lighter on this GPU). Moves the camera at most
     // every 2 s and only when the car moved ~15 m or turned ~8°, instead of on every GPS fix.
     LaunchedEffect(Unit) {
-        var lastLat = 0.0; var lastLon = 0.0; var lastBearing = 0f
-        androidx.compose.runtime.snapshotFlow { fixState.value }.collect { fix ->
+        var lastLat = 0.0; var lastLon = 0.0; var lastBearing = 0f; var lastZoom = 0f
+        androidx.compose.runtime.snapshotFlow { fixState.value to Cfg.mapZoom.floatValue }.collect { (fix, zoom) ->
             val map = holder[0] ?: return@collect
             val lat = fix.lat ?: return@collect
             val lon = fix.lon ?: return@collect
             val bearing = fix.bearing ?: lastBearing
             val moved = kotlin.math.abs(lat - lastLat) + kotlin.math.abs(lon - lastLon) > 0.00014
             val turned = kotlin.math.abs(bearing - lastBearing) > 8f
-            if (!moved && !turned) return@collect
-            lastLat = lat; lastLon = lon; lastBearing = bearing
+            val zoomed = zoom != lastZoom
+            if (!moved && !turned && !zoomed) return@collect
+            lastLat = lat; lastLon = lon; lastBearing = bearing; lastZoom = zoom
             val pos = CameraPosition.Builder()
                 .target(LatLng(lat, lon))
-                .zoom(if ((fix.speedKmh ?: 0) > 70) 14.0 else 15.5)
+                .zoom((zoom - if ((fix.speedKmh ?: 0) > 70) 1.5f else 0f).toDouble())
                 .bearing(bearing.toDouble())
                 .tilt(0.0)
                 .build()
             // Linear glide that lasts until the next update: continuous, even motion, no stop-start.
+            if (zoomed && !moved) { map.easeCamera(CameraUpdateFactory.newCameraPosition(pos), 350, true); return@collect }
             map.easeCamera(CameraUpdateFactory.newCameraPosition(pos), 2000, false)
             kotlinx.coroutines.delay(2000)
         }

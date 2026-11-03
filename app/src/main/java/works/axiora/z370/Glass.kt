@@ -54,7 +54,9 @@ import java.util.Locale
  * Painted, not blurred: behind it sit only smooth glows, which a real blur would leave unchanged,
  * so this costs the GPU almost nothing and never stutters.
  */
-fun Modifier.glass(shape: Shape, strength: Float = 1f) = this
+fun Modifier.glass(shape: Shape, strength: Float = 1f) = glassAt(shape, strength * Cfg.glass.floatValue)
+
+private fun Modifier.glassAt(shape: Shape, strength: Float) = this
     .clip(shape)
     .background(
         Brush.linearGradient(
@@ -73,10 +75,13 @@ fun Modifier.glass(shape: Shape, strength: Float = 1f) = this
 @Composable
 fun AmbientBackdrop(accent: Color) {
     Box(
-        Modifier.fillMaxSize().background(Color(0xFF050506)).drawBehind {
+        Modifier.fillMaxSize().background(Cfg.ground).drawBehind {
             val w = size.width; val h = size.height
-            fun glow(c: Color, alpha: Float, cx: Float, cy: Float, r: Float) =
-                drawCircle(Brush.radialGradient(listOf(c.copy(alpha = alpha), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+            val k = Cfg.glow.floatValue
+            fun glow(c: Color, alpha: Float, cx: Float, cy: Float, r: Float) {
+                if (k <= 0f) return
+                drawCircle(Brush.radialGradient(listOf(c.copy(alpha = alpha * k), Color.Transparent), Offset(cx, cy), r), r, Offset(cx, cy))
+            }
             glow(accent, 0.55f, w * 0.08f, h * 0.08f, w * 0.80f)
             glow(Color(0xFF8A1A10), 0.60f, w * 1.0f, h * 0.62f, w * 0.85f)
             glow(Color(0xFF2B3440), 0.80f, w * 0.38f, h * 0.80f, w * 0.48f)
@@ -86,9 +91,9 @@ fun AmbientBackdrop(accent: Color) {
 
 // ---------------------------------------------------------------- Home
 
-@OptIn(ExperimentalFoundationApi::class)
+/** The app: ambient backdrop, header, the selected page, and the glass tab bar. */
 @Composable
-fun GlassHome(
+fun AppShell(
     car: CarState,
     accent: Color,
     locationGranted: Boolean,
@@ -96,14 +101,14 @@ fun GlassHome(
     onRole: (Role) -> Unit,
     onAssign: (Role) -> Unit,
     onApps: () -> Unit,
-    onSettings: () -> Unit,
+    onAccent: (Color) -> Unit,
+    onProbe: () -> Unit,
 ) {
     // Each live value is read inside its own small composable, so a clock tick, a GPS fix or
     // a steering frame redraws only that piece, never the whole screen with the map in it.
     val fixState = rememberGpsFix(locationGranted)
-    val media = rememberMedia()
-    val sweep = rememberStartupSweep()
     WeatherUpdater(fixState)
+    val page = Cfg.page.value
 
     Box(Modifier.fillMaxSize()) {
         AmbientBackdrop(accent)
@@ -111,81 +116,177 @@ fun GlassHome(
             Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 36.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(28.dp),
         ) {
-            // Header: big clock, date, settings.
             Row(Modifier.fillMaxWidth().height(110.dp), verticalAlignment = Alignment.CenterVertically) {
                 HeaderClock()
                 Spacer(Modifier.weight(1f))
-                OutsideTemp(car)
-                Box(Modifier.size(80.dp).glass(CircleShape).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
-                    LineIcon("M4 6h16 M4 12h16 M4 18h16 M8 4v4 M16 10v4 M10 16v4", Z.Bright, 34.dp)
-                }
-            }
-
-            // Tiles: weather, speed, climate.
-            Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Tile("WEATHER", Modifier.weight(1f)) { WeatherTileBody(accent) }
-                Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState, accent, sweep) }
-                Tile("CLIMATE", Modifier.weight(1f)) { ClimateTileBody(car) }
-            }
-
-            // Live map with a glass navigation bar.
-            Box(
-                Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(56.dp))
-                    .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp))
-                    .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
-            ) {
-                LiveMap(fixState, accent, car.night.value, Modifier.fillMaxSize())
-                CarOverlay(fixState, car, accent) { onRole(Role.MAPS) }
-                CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
-                Row(
-                    Modifier.align(Alignment.BottomCenter).padding(24.dp).fillMaxWidth().height(116.dp)
-                        .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0xB3050506)).padding(horizontal = 30.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
+                StatusDots(car, fixState, accent)
+                Box(
+                    Modifier.size(80.dp).glass(CircleShape, if (page == "settings") 1.8f else 1f)
+                        .clickable { Cfg.page.value = if (page == "settings") "home" else "settings" },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    val step = Nav.step.value
-                    if (step != null) {
-                        // Live next turn from Google Maps / Waze while they navigate.
-                        val arrow = step.arrow
-                        if (arrow != null) Image(arrow, null, Modifier.size(64.dp)) else LineIcon("M9 6l6 6-6 6", Z.Bright, 48.dp, 2.2f)
-                        Column(Modifier.weight(1f)) {
-                            T(step.title, 38, Z.Bright, Condensed, FontWeight.Medium)
-                            T(listOfNotNull(step.text.ifBlank { null }, step.sub).joinToString(" · "), 20, Color(0xFFDDE1E6))
-                        }
-                    } else {
-                        LineIcon("M3 11l18-8-8 18-2-8z", accent, 40.dp, 2f)
-                        Column(Modifier.weight(1f)) {
-                            T("NAVIGATION", 18, Color(0xFFDDE1E6), spacing = 3f)
-                            T(resolved[Role.MAPS]?.label ?: "Choose a maps app", 38, Z.Bright, Condensed, FontWeight.Medium)
-                        }
-                        T("TAP TO OPEN", 18, Color(0xFFDDE1E6), spacing = 2f)
-                    }
+                    if (page == "settings") LineIcon("M6 6l12 12 M18 6L6 18", Z.Bright, 32.dp, 2f)
+                    else LineIcon("M4 6h16 M4 12h16 M4 18h16 M8 4v4 M16 10v4 M10 16v4", Z.Bright, 34.dp)
                 }
             }
 
-            GlassMedia(media, car, accent, resolved[Role.MUSIC]) { onRole(Role.MUSIC) }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                when (page) {
+                    "drive" -> DrivePage(fixState, car, accent)
+                    "map" -> MapPage(fixState, car, accent, resolved, onRole, onAssign)
+                    "media" -> MediaPage(car, accent, resolved, onRole)
+                    "garage" -> GaragePage(accent)
+                    "settings" -> SettingsPage(accent, resolved, onAccent, onAssign, onProbe)
+                    else -> HomePage(fixState, car, accent, resolved, onRole, onAssign, onApps)
+                }
+            }
 
-            // Dock: one glass pill, icons only.
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 70.dp).height(130.dp).glass(RoundedCornerShape(65.dp), 1.2f),
-                verticalAlignment = Alignment.CenterVertically,
+            TabBar(page, accent)
+        }
+    }
+}
+
+private val Tabs = listOf(
+    Triple("home", "HOME", "M3 11l9-7 9 7 M5 10v10h14V10"),
+    Triple("drive", "DRIVE", "M4 16a8 8 0 1 1 16 0 M12 16l4-5 M12 16h0.01"),
+    Triple("map", "MAP", "M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z M9 4v14 M15 6v14"),
+    Triple("media", "MEDIA", "M9 18V5l12-2v13 M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M15 16a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"),
+    Triple("garage", "GARAGE", "M3 21V9l9-5 9 5v12 M7 21v-7h10v7 M7 17h10"),
+)
+
+@Composable
+private fun TabBar(page: String, accent: Color) {
+    Row(
+        Modifier.fillMaxWidth().height(130.dp).glass(RoundedCornerShape(65.dp), 1.2f).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Tabs.forEach { (id, label, path) ->
+            val on = page == id
+            Column(
+                Modifier.weight(1f).fillMaxHeight().padding(vertical = 14.dp).clip(RoundedCornerShape(50.dp))
+                    .background(if (on) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                    .clickable { Cfg.page.value = id },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
             ) {
-                listOf(Role.CARPLAY, Role.MAPS, Role.PHONE, Role.MUSIC, Role.CAMERA).forEach { role ->
-                    Box(
-                        Modifier.weight(1f).fillMaxHeight().combinedClickable(onClick = { onRole(role) }, onLongClick = { onAssign(role) }),
-                        contentAlignment = Alignment.Center,
-                    ) { LineIcon(role.path, Z.Bright, 46.dp, 1.6f) }
-                }
-                Box(Modifier.weight(1f).fillMaxHeight().clickable(onClick = onApps), contentAlignment = Alignment.Center) {
-                    LineIcon("M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z", Z.Bright, 46.dp, 1.6f)
-                }
+                LineIcon(path, if (on) accent else Z.Bright, 40.dp, if (on) 2f else 1.6f)
+                T(label, 16, if (on) Z.Bright else Color(0xFFB8BDC5), spacing = 3f, weight = if (on) FontWeight.Medium else FontWeight.Normal)
             }
         }
     }
 }
 
+/** CAN / GPS / BT liveness, like a factory status strip. */
 @Composable
-private fun Tile(label: String, modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun StatusDots(car: CarState, fixState: androidx.compose.runtime.State<Fix>, accent: Color) {
+    val gps = fixState.value.lat != null
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.padding(end = 26.dp)) {
+        OutsideTemp(car)
+        listOf("CAN" to car.live.value, "GPS" to gps, "BT" to (car.btTitle.value != null || car.callState.value >= 3)).forEach { (l, on) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(if (on) accent else Color.White.copy(alpha = 0.25f)))
+                T(l, 16, if (on) Color(0xFFDDE1E6) else Color(0xFF8D929A), spacing = 2f)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun HomePage(
+    fixState: androidx.compose.runtime.State<Fix>,
+    car: CarState,
+    accent: Color,
+    resolved: Map<Role, AppEntry?>,
+    onRole: (Role) -> Unit,
+    onAssign: (Role) -> Unit,
+    onApps: () -> Unit,
+) {
+    val media = rememberMedia()
+    val sweep = rememberStartupSweep()
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        Row(Modifier.fillMaxWidth().height(300.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            when (Cfg.leftTile.value) {
+                "cabin" -> Tile("CABIN", Modifier.weight(1f)) { CabinTileBody(car, accent, sweep) }
+                "doors" -> Tile("DOORS", Modifier.weight(1f)) { DoorsTileBody(car, accent) }
+                "steering" -> Tile("STEERING", Modifier.weight(1f)) { SteeringTileBody(car, accent) }
+                else -> Tile("WEATHER", Modifier.weight(1f)) { WeatherTileBody(accent) }
+            }
+            Tile("SPEED", Modifier.weight(1f)) { SpeedTileBody(fixState, accent, sweep) }
+            Tile("CLIMATE", Modifier.weight(1f)) { ClimateTileBody(car) }
+        }
+
+        Box(
+            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(56.dp))
+                .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp))
+                .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
+        ) {
+            LiveMap(fixState, accent, mapNight(car), Modifier.fillMaxSize())
+            CarOverlay(fixState, car, accent) { onRole(Role.MAPS) }
+            CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
+            NavBar(resolved, accent, Modifier.align(Alignment.BottomCenter).padding(24.dp))
+        }
+
+        GlassMedia(media, car, accent, resolved[Role.MUSIC]) { onRole(Role.MUSIC) }
+
+        // Quick launch: the apps you reach for most, one tap each. Long-press to choose the app.
+        Row(Modifier.fillMaxWidth().height(110.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            listOf(Role.CARPLAY, Role.PHONE, Role.CAMERA).forEach { role ->
+                Row(
+                    Modifier.weight(1f).fillMaxHeight().glass(RoundedCornerShape(40.dp))
+                        .combinedClickable(onClick = { onRole(role) }, onLongClick = { onAssign(role) }),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+                ) {
+                    LineIcon(role.path, Z.Bright, 38.dp, 1.6f)
+                    T(role.label, 18, Z.Bright, spacing = 3f)
+                }
+            }
+            Row(
+                Modifier.weight(1f).fillMaxHeight().glass(RoundedCornerShape(40.dp)).clickable(onClick = onApps),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+            ) {
+                LineIcon("M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z", Z.Bright, 38.dp, 1.6f)
+                T("APPS", 18, Z.Bright, spacing = 3f)
+            }
+        }
+    }
+}
+
+/** Dark map at night (headlights on) unless the user fixed a style. */
+fun mapNight(car: CarState) = when (Cfg.mapStyle.value) { "dark" -> true; "light" -> false; else -> car.night.value }
+
+/** Glass next-turn bar: live step from Google Maps / Waze while navigating, else the maps app. */
+@Composable
+fun NavBar(resolved: Map<Role, AppEntry?>, accent: Color, modifier: Modifier) {
+    Row(
+        modifier.fillMaxWidth().height(116.dp)
+            .glass(RoundedCornerShape(36.dp), 1.4f).background(Color(0xB3050506)).padding(horizontal = 30.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        val step = Nav.step.value
+        if (step != null) {
+            val arrow = step.arrow
+            if (arrow != null) Image(arrow, null, Modifier.size(64.dp)) else LineIcon("M9 6l6 6-6 6", Z.Bright, 48.dp, 2.2f)
+            Column(Modifier.weight(1f)) {
+                T(step.title, 38, Z.Bright, Condensed, FontWeight.Medium)
+                T(listOfNotNull(step.text.ifBlank { null }, step.sub).joinToString(" · "), 20, Color(0xFFDDE1E6))
+            }
+        } else {
+            LineIcon("M3 11l18-8-8 18-2-8z", accent, 40.dp, 2f)
+            Column(Modifier.weight(1f)) {
+                T("NAVIGATION", 18, Color(0xFFDDE1E6), spacing = 3f)
+                T(resolved[Role.MAPS]?.label ?: "Choose a maps app", 38, Z.Bright, Condensed, FontWeight.Medium)
+            }
+            T("TAP TO OPEN", 18, Color(0xFFDDE1E6), spacing = 2f)
+        }
+    }
+}
+
+@Composable
+fun Tile(label: String, modifier: Modifier, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     Column(
         modifier.fillMaxHeight().glass(RoundedCornerShape(48.dp)).padding(32.dp),
         verticalArrangement = Arrangement.SpaceBetween,
@@ -196,7 +297,7 @@ private fun Tile(label: String, modifier: Modifier, content: @Composable android
 }
 
 @Composable
-private fun Bar(fraction: Float, accent: Color) {
+fun Bar(fraction: Float, accent: Color) {
     Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.14f))) {
         Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(accent))
     }
@@ -245,7 +346,7 @@ fun DoorGlyph(car: CarState, accent: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp: AppEntry?, onOpenMusic: () -> Unit) {
+fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp: AppEntry?, onOpenMusic: () -> Unit) {
     val ctx = LocalContext.current
     val np = media.now.value
     val btTitle = car.btTitle.value
@@ -298,13 +399,13 @@ private fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp
 }
 
 @Composable
-private fun GlassButton(size: Int, onClick: () -> Unit, strength: Float = 1f, content: @Composable () -> Unit) {
+fun GlassButton(size: Int, onClick: () -> Unit, strength: Float = 1f, content: @Composable () -> Unit) {
     Box(Modifier.size(size.dp).glass(CircleShape, strength).clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
 
 @Composable
-private fun HeaderClock() {
+fun HeaderClock() {
     val ctx = LocalContext.current
     val now by produceState(System.currentTimeMillis()) {
         while (true) {
@@ -322,7 +423,7 @@ private fun HeaderClock() {
 }
 
 @Composable
-private fun OutsideTemp(car: CarState) {
+fun OutsideTemp(car: CarState) {
     val t = car.outsideTemp.value ?: return
     T(t.replace("℃", "°").replace("C", "°").trim() + " OUTSIDE", 24, Color(0xFFB8BDC5), spacing = 2f)
     Spacer(Modifier.width(24.dp))
@@ -341,7 +442,7 @@ private fun SteeringReadout(car: CarState) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
+fun androidx.compose.foundation.layout.ColumnScope.CabinTileBody(car: CarState, accent: Color, sweep: androidx.compose.runtime.State<Float>) {
     val c = car.cabinC.value
     T(c?.let { "%.1f°".format(it) } ?: "--", 96, Z.Bright, Condensed, FontWeight.Light)
     val s = sweep.value
@@ -353,13 +454,13 @@ private fun SpeedTileBody(fixState: androidx.compose.runtime.State<Fix>, accent:
     val s = sweep.value
     val kmh = if (s >= 0f) (s * 260f).toInt() else fixState.value.speedKmh
     Row(verticalAlignment = Alignment.Bottom) {
-        T(kmh?.toString() ?: "--", 110, Z.Bright, Condensed, FontWeight.Light)
+        T(Cfg.speed(kmh), 110, Z.Bright, Condensed, FontWeight.Light)
         Spacer(Modifier.width(10.dp))
-        T("KM/H", 20, Color(0xFFDDE1E6), spacing = 4f, modifier = Modifier.padding(bottom = 18.dp))
+        T(Cfg.speedUnit, 20, Color(0xFFDDE1E6), spacing = 4f, modifier = Modifier.padding(bottom = 18.dp))
     }
     val km = Trip.km.floatValue
     val min = Trip.minutes.intValue
-    T(if (km < 0.05f && min == 0) "TRIP —" else "TRIP %.1f KM · %d:%02d".format(km, min / 60, min % 60), 20, Color(0xFFDDE1E6), spacing = 1f)
+    T(if (km < 0.05f && min == 0) "TRIP —" else "TRIP %s · %d:%02d".format(Cfg.dist(km), min / 60, min % 60), 20, Color(0xFFDDE1E6), spacing = 1f)
     Bar(if (s >= 0f) s else ((kmh ?: 0) / 260f).coerceIn(0f, 1f), accent)
 }
 
@@ -392,7 +493,7 @@ fun rememberStartupSweep(): androidx.compose.runtime.State<Float> {
 }
 
 @Composable
-private fun CallCard(car: CarState, accent: Color, modifier: Modifier) {
+fun CallCard(car: CarState, accent: Color, modifier: Modifier) {
     val st = car.callState.value
     if (st < 4) return
     val ctx = LocalContext.current
@@ -421,7 +522,7 @@ private fun CallCard(car: CarState, accent: Color, modifier: Modifier) {
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: CarState, accent: Color) {
+fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: CarState, accent: Color) {
     DoorGlyph(car, accent, Modifier.align(Alignment.CenterHorizontally).width(90.dp).height(140.dp))
     val open = listOfNotNull(
         if (car.driverDoor.value) "Driver" else null,
@@ -432,7 +533,24 @@ private fun androidx.compose.foundation.layout.ColumnScope.DoorsTileBody(car: Ca
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: CarState) {
+fun androidx.compose.foundation.layout.ColumnScope.SteeringTileBody(car: CarState, accent: Color) {
+    val a = car.steeringDeg.value
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Canvas(Modifier.size(96.dp)) {
+            val c = center; val r = size.minDimension / 2f - 4f
+            drawCircle(Color.White.copy(alpha = 0.6f), r, c, style = Stroke(5f))
+            androidx.compose.ui.graphics.drawscope.rotate(a ?: 0f, c) {
+                drawLine(accent, Offset(c.x - r, c.y), Offset(c.x + r, c.y), 5f)
+                drawLine(accent, c, Offset(c.x, c.y + r), 5f)
+            }
+        }
+        T(a?.let { "%+d°".format(it.toInt()) } ?: "--", 72, Z.Bright, Condensed, FontWeight.Light)
+    }
+    T(if (a == null) "WAITING FOR CAN" else if (kotlin.math.abs(a) < 3f) "STRAIGHT AHEAD" else if (a > 0) "LEFT" else "RIGHT", 20, Color(0xFFDDE1E6), spacing = 2f)
+}
+
+@Composable
+fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: CarState) {
     val l = car.setTempL.value
     val r = car.setTempR.value
     T(if (l == null) "--" else if (r == null || r == l) "%.1f°".format(l) else "%.0f° · %.0f°".format(l, r), 72, Z.Bright, Condensed, FontWeight.Light)
@@ -447,7 +565,7 @@ private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: and
     var forceMap by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val parked = (fixState.value.speedKmh ?: 0) < 5
     val anyOpen = car.driverDoor.value || car.passengerDoor.value || car.boot.value
-    val showCar = anyOpen || (parked && !forceMap)
+    val showCar = anyOpen || (parked && !forceMap && Cfg.parkedView.value == "car")
     androidx.compose.animation.AnimatedVisibility(
         visible = showCar,
         enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400)),
@@ -466,7 +584,7 @@ private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: and
                 modifier = Modifier.align(Alignment.TopStart).padding(36.dp))
         }
     }
-    if (parked && !anyOpen) {
+    if (parked && !anyOpen && Cfg.parkedView.value == "car") {
         Box(
             Modifier.align(Alignment.TopEnd).padding(24.dp).height(64.dp)
                 .glass(RoundedCornerShape(32.dp), 1.3f).clickable { forceMap = !forceMap }

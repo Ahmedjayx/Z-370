@@ -66,6 +66,11 @@ object Nav {
 object Trip {
     val km = androidx.compose.runtime.mutableFloatStateOf(0f)
     val minutes = androidx.compose.runtime.mutableIntStateOf(0)
+    val maxKmh = androidx.compose.runtime.mutableIntStateOf(0)
+    /** Average over time actually moving, km/h. */
+    val avgKmh = androidx.compose.runtime.mutableIntStateOf(0)
+    private var movingMs = 0L
+    private var lastFixMs = 0L
     private var last: android.location.Location? = null
     private var startMs = 0L
     private var lastMoveMs = 0L
@@ -74,11 +79,18 @@ object Trip {
         val now = System.currentTimeMillis()
         val moving = loc.hasSpeed() && loc.speed > 1.5f
         if (moving) {
-            if (startMs == 0L || now - lastMoveMs > 30 * 60_000L) { km.floatValue = 0f; startMs = now; last = null }
+            if (startMs == 0L || now - lastMoveMs > 30 * 60_000L) {
+                km.floatValue = 0f; startMs = now; last = null; maxKmh.intValue = 0; movingMs = 0L; lastFixMs = now
+            }
+            val kmh = (loc.speed * 3.6f).toInt()
+            if (kmh > maxKmh.intValue) maxKmh.intValue = kmh
+            if (lastFixMs != 0L && now - lastFixMs < 5000) movingMs += now - lastFixMs
+            lastFixMs = now
             lastMoveMs = now
             last?.let { p -> val d = p.distanceTo(loc); if (d < 500f) km.floatValue += d / 1000f }
             last = loc
-        }
+            if (movingMs > 20_000) avgKmh.intValue = (km.floatValue / (movingMs / 3_600_000f)).toInt()
+        } else lastFixMs = 0L
         if (startMs != 0L) minutes.intValue = ((now - startMs) / 60_000L).toInt()
     }
 }

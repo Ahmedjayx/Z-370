@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
         if (!locationGranted.value) {
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 1)
         }
+        Cfg.load(this)
         setContent {
             Root(homeSignal = homeSignal.intValue, locationGranted = locationGranted.value)
         }

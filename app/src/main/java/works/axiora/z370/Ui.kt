@@ -163,9 +163,10 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
 
     LaunchedEffect(homeSignal) {
         drawer = false; assignRole = null; settings = false
+        Cfg.page.value = "home"
     }
     // Back never closes the probe: only its X does, so a stray press can't end a recording.
-    BackHandler { drawer = false; assignRole = null; settings = false }
+    BackHandler { drawer = false; assignRole = null; settings = false; if (Cfg.page.value == "settings") Cfg.page.value = "home" }
 
     val car = rememberCarState()
     BoxWithConstraints(Modifier.fillMaxSize().background(Z.Ground)) {
@@ -183,7 +184,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                     assignRole = role; drawer = true
                 }
             }
-            GlassHome(
+            AppShell(
                 car = car,
                 accent = accent,
                 locationGranted = locationGranted,
@@ -191,7 +192,8 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                 onRole = open,
                 onAssign = { assignRole = it; drawer = true },
                 onApps = { assignRole = null; drawer = true },
-                onSettings = { settings = true },
+                onAccent = { accent = it; Prefs.setAccent(ctx, it.toArgb()) },
+                onProbe = { probe = true; Prefs.setProbeOpen(ctx, true) },
             )
             if (drawer) {
                 Drawer(
@@ -210,14 +212,6 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                         roleTick++; drawer = false; assignRole = null
                     },
                     onClose = { drawer = false; assignRole = null },
-                )
-            }
-            if (settings) {
-                SettingsSheet(
-                    accent = accent,
-                    onAccent = { accent = it; Prefs.setAccent(ctx, it.toArgb()) },
-                    onClose = { settings = false },
-                    onProbe = { settings = false; probe = true; Prefs.setProbeOpen(ctx, true) },
                 )
             }
             if (probe) ProbeScreen(accent = accent, onClose = { probe = false; Prefs.setProbeOpen(ctx, false) })
