@@ -29,7 +29,7 @@ jobs:
           curl -fsSL $base/barlowcondensed/BarlowCondensed-Light.ttf -o app/src/main/res/font/barlow_condensed_light.ttf
           curl -fsSL $base/barlowcondensed/BarlowCondensed-Medium.ttf -o app/src/main/res/font/barlow_condensed_medium.ttf
       - name: Render pages
-        run: gradle :app:testDebugUnitTest --no-daemon --tests 'works.axiora.z370.PageShots' || true
+        run: gradle :app:testDebugUnitTest --no-daemon --tests 'works.axiora.z370.PageShots' --tests 'works.axiora.z370.WalkShots' || true
       - uses: actions/upload-artifact@v4
         with:
           name: shots
@@ -38,7 +38,8 @@ jobs:
             app/build/reports/tests/
       - name: Publish to the shots branch
         run: |
-          mkdir /tmp/pub && cp app/build/shots/*.png /tmp/pub/ 2>/dev/null || true
+          mkdir -p /tmp/pub/walk && cp app/build/shots/*.png /tmp/pub/ 2>/dev/null || true
+          cp app/build/walk/*.png /tmp/pub/walk/ 2>/dev/null || true
           find app/build/test-results -name "*.xml" -exec cp {} /tmp/pub/ \; 2>/dev/null || true
           cd /tmp/pub && git init -q -b shots && git add -A
           git -c user.name=ci -c user.email=ci@local commit -qm "shots ${GITHUB_SHA}" || exit 0

@@ -98,12 +98,15 @@ object Trip {
     }
 }
 
+/** Screenshot tests only: a fixed GPS fix to show. Never set in the app. */
+object PreviewFix { var value: Fix? = null }
+
 data class Fix(val speedKmh: Int?, val bearing: Float?, val lat: Double? = null, val lon: Double? = null)
 
 @Composable
 fun rememberGpsFix(granted: Boolean): State<Fix> {
     val ctx = LocalContext.current
-    val state = remember { mutableStateOf(Fix(null, null)) }
+    val state = remember { mutableStateOf(PreviewFix.value ?: Fix(null, null)) }
     DisposableEffect(granted) {
         val lm = ctx.getSystemService(LocationManager::class.java)
         val listener = LocationListener { loc ->
