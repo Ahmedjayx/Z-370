@@ -348,7 +348,7 @@ fun GlassMedia(media: MediaState, car: CarState, accent: Color, musicApp: AppEnt
     val subtitle = when {
         np != null -> np.artist
         btTitle != null -> "Bluetooth audio"
-        else -> musicApp?.label ?: "Nothing playing"
+        else -> musicApp?.label ?: "Tap play for your phone's music"
     }
     val playing = np?.playing ?: car.btPlaying.value
     fun key(code: Int) {
