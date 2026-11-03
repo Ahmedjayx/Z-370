@@ -44,6 +44,7 @@ class PageShots {
         rule.onRoot().captureRoboImage("build/shots/$page.png")
     }
 
+    @Test fun home() = shot("home")
     @Test fun settings() = shot("settings")
     @Test fun drive() = shot("drive")
     @Test fun driveNumbers() = shot("drive") { Cfg.driveFace.value = "numbers" }.also { }

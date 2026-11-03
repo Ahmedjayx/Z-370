@@ -31,63 +31,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/** The map at full size, heading-up, with zoom and a one-tap hand-off to the navigation app. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun MapPage(
-    fixState: State<Fix>,
-    car: CarState,
-    accent: Color,
-    resolved: Map<Role, AppEntry?>,
-    onRole: (Role) -> Unit,
-    onAssign: (Role) -> Unit,
-) {
-    Box(
-        Modifier.fillMaxSize().clip(RoundedCornerShape(56.dp))
-            .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp)),
-    ) {
-        LiveMap(fixState, accent, mapNight(car), Modifier.fillMaxSize())
-        CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
-        // Speed, bottom left above the nav bar.
-        Column(
-            Modifier.align(Alignment.BottomStart).padding(start = 24.dp, bottom = 164.dp).size(170.dp)
-                .glass(RoundedCornerShape(40.dp), 1.4f).background(Color(0x99050506)),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            T(Cfg.speed(fixState.value.speedKmh), 76, Z.Bright, Condensed, FontWeight.Light)
-            T(Cfg.speedUnit, 16, Soft, spacing = 3f)
-        }
-        // Zoom.
-        Column(
-            Modifier.align(Alignment.CenterEnd).padding(end = 24.dp).glass(RoundedCornerShape(48.dp), 1.4f).background(Color(0x99050506)),
-        ) {
-            listOf("M12 5v14 M5 12h14" to 0.75f, "M5 12h14" to -0.75f).forEach { (path, step) ->
-                Box(
-                    Modifier.size(110.dp).clickable {
-                        val z = (Cfg.mapZoom.floatValue + step).coerceIn(11f, 18.5f)
-                        Cfg.mapZoom.floatValue = z; Cfg.set("mapZoom", z)
-                    },
-                    contentAlignment = Alignment.Center,
-                ) { LineIcon(path, Z.Bright, 40.dp, 2.2f) }
-            }
-        }
-        Box(
-            Modifier.align(Alignment.TopEnd).padding(24.dp).height(80.dp)
-                .glass(RoundedCornerShape(40.dp), 1.4f).background(Color(0x99050506))
-                .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) })
-                .padding(horizontal = 30.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LineIcon("M3 11l18-8-8 18-2-8z", accent, 30.dp, 2f)
-                T("  NAVIGATE", 20, Z.Bright, spacing = 3f, weight = FontWeight.Medium)
-            }
-        }
-        NavBar(resolved, accent, Modifier.align(Alignment.BottomCenter).padding(24.dp))
-    }
-}
-
 /** Now playing, full size: big artwork, title, controls and the source you play from. */
 @Composable
 fun MediaPage(car: CarState, accent: Color, resolved: Map<Role, AppEntry?>, onRole: (Role) -> Unit) {

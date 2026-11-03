@@ -71,7 +71,6 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
-    implementation("org.maplibre.gl:android-sdk:13.7.1")
 
     // Screenshot tests: render each page on the JVM (Robolectric) so the layout can be checked in CI.
     testImplementation("junit:junit:4.13.2")

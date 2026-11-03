@@ -113,11 +113,6 @@ fun SettingsPage(
             listOf(Triple("weather", "Weather", "Open-Meteo"), Triple("steering", "Steering", "CAN angle"), Triple("doors", "Doors", "Top view"), Triple("cabin", "Cabin", "Unreliable")),
             Cfg.leftTile.value, accent,
         ) { Cfg.put(Cfg.leftTile, "leftTile", it) }
-        T("WHEN PARKED", 16, Muted, spacing = 3f, modifier = Modifier.padding(start = 8.dp, top = 6.dp))
-        Options(
-            listOf(Triple("car", "Wireframe car", "Live doors"), Triple("map", "Map", "Always")),
-            Cfg.parkedView.value, accent,
-        ) { Cfg.put(Cfg.parkedView, "parkedView", it) }
 
         // ---------------------------------------------------------------- Drive
         Section("DRIVE", "The Drive page's face and speed warning.")
@@ -131,26 +126,6 @@ fun SettingsPage(
             listOf(Triple(0, "Off", null), Triple(100, "100", Cfg.speedUnit.lowercase()), Triple(120, "120", null), Triple(140, "140", null)),
             Cfg.redlineKmh.intValue, accent,
         ) { Cfg.redlineKmh.intValue = it; Cfg.set("redlineKmh", it) }
-
-        // ---------------------------------------------------------------- Map
-        Section("MAP")
-        Options(
-            listOf(Triple("auto", "Auto", "Follows headlights"), Triple("dark", "Dark", "Always"), Triple("light", "Light", "Always")),
-            Cfg.mapStyle.value, accent, height = 190,
-            preview = { v ->
-                val bgc = when (v) { "dark" -> Color(0xFF15181C); "light" -> Color(0xFFE9EAEC); else -> Color(0xFF7E8288) }
-                val road = when (v) { "dark" -> Color(0xFF3A3F46); "light" -> Color.White; else -> Color(0xFFB9BCC1) }
-                Canvas(Modifier.fillMaxWidth().height(70.dp).clip(RoundedCornerShape(18.dp)).background(bgc)) {
-                    drawLine(road, Offset(0f, size.height * 0.3f), Offset(size.width, size.height * 0.6f), 10f)
-                    drawLine(road, Offset(size.width * 0.35f, 0f), Offset(size.width * 0.45f, size.height), 8f)
-                    drawCircle(accent, 9f, Offset(size.width * 0.42f, size.height * 0.45f))
-                }
-            },
-        ) { Cfg.put(Cfg.mapStyle, "mapStyle", it) }
-        Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlassPill(if (OfflineMap.busy.value) "DOWNLOADING UAE MAP…" else "DOWNLOAD UAE OFFLINE MAP") { OfflineMap.start(ctx) }
-            if (OfflineMap.status.value.isNotEmpty()) T(OfflineMap.status.value, 20, Muted)
-        }
 
         // ---------------------------------------------------------------- Units
         Section("UNITS")
@@ -215,7 +190,7 @@ fun SettingsPage(
         Column(Modifier.padding(start = 8.dp, top = 10.dp, bottom = 30.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             T("Z370 Launcher $ver", 22, Soft)
             T("Car model: \"2020 Nissan 370Z Sport Touring\" by Ddiaz Design, CC BY-NC-SA 4.0", 17, Muted)
-            T("Wireframe technique after Celica Dash by Kade (MIT). Map © OpenStreetMap contributors, OpenFreeMap.", 17, Muted)
+            T("Wireframe technique after Celica Dash by Kade (MIT).", 17, Muted)
             T("Weather by Open-Meteo.com.", 17, Muted)
         }
         Spacer(Modifier.height(20.dp))

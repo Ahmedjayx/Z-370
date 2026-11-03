@@ -134,7 +134,6 @@ fun AppShell(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (page) {
                     "drive" -> DrivePage(fixState, car, accent)
-                    "map" -> MapPage(fixState, car, accent, resolved, onRole, onAssign)
                     "media" -> MediaPage(car, accent, resolved, onRole)
                     "garage" -> GaragePage(accent)
                     "settings" -> SettingsPage(accent, resolved, onAccent, onAssign, onProbe)
@@ -150,7 +149,6 @@ fun AppShell(
 private val Tabs = listOf(
     Triple("home", "HOME", "M3 11l9-7 9 7 M5 10v10h14V10"),
     Triple("drive", "DRIVE", "M4 16a8 8 0 1 1 16 0 M12 16l4-5 M12 16h0.01"),
-    Triple("map", "MAP", "M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z M9 4v14 M15 6v14"),
     Triple("media", "MEDIA", "M9 18V5l12-2v13 M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M15 16a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"),
     Triple("garage", "GARAGE", "M3 21V9l9-5 9 5v12 M7 21v-7h10v7 M7 17h10"),
 )
@@ -218,45 +216,40 @@ private fun HomePage(
         }
 
         Box(
-            Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(56.dp))
-                .border(1.5.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(56.dp))
-                .combinedClickable(onClick = { onRole(Role.MAPS) }, onLongClick = { onAssign(Role.MAPS) }),
+            Modifier.weight(1f).fillMaxWidth().glass(RoundedCornerShape(56.dp)),
         ) {
-            LiveMap(fixState, accent, mapNight(car), Modifier.fillMaxSize())
-            CarOverlay(fixState, car, accent) { onRole(Role.MAPS) }
+            CarCard(fixState, car, accent) { onRole(Role.MAPS) }
             CallCard(car, accent, Modifier.align(Alignment.TopCenter).padding(24.dp))
-            NavBar(resolved, accent, Modifier.align(Alignment.BottomCenter).padding(24.dp))
+            // Google Maps' next turn, only while it is navigating.
+            if (Nav.step.value != null) NavBar(resolved, accent, Modifier.align(Alignment.BottomCenter).padding(24.dp))
         }
 
         GlassMedia(media, car, accent, resolved[Role.MUSIC]) { onRole(Role.MUSIC) }
 
         // Quick launch: the apps you reach for most, one tap each. Long-press to choose the app.
-        Row(Modifier.fillMaxWidth().height(110.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            listOf(Role.CARPLAY, Role.PHONE, Role.CAMERA).forEach { role ->
-                Row(
+        Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            listOf(Role.MAPS, Role.CARPLAY, Role.PHONE, Role.CAMERA).forEach { role ->
+                Column(
                     Modifier.weight(1f).fillMaxHeight().glass(RoundedCornerShape(40.dp))
                         .combinedClickable(onClick = { onRole(role) }, onLongClick = { onAssign(role) }),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                 ) {
-                    LineIcon(role.path, Z.Bright, 38.dp, 1.6f)
-                    T(role.label, 18, Z.Bright, spacing = 3f)
+                    LineIcon(role.path, Z.Bright, 40.dp, 1.6f)
+                    T(role.label, 16, Z.Bright, spacing = 3f)
                 }
             }
-            Row(
+            Column(
                 Modifier.weight(1f).fillMaxHeight().glass(RoundedCornerShape(40.dp)).clickable(onClick = onApps),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
             ) {
-                LineIcon("M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z", Z.Bright, 38.dp, 1.6f)
-                T("APPS", 18, Z.Bright, spacing = 3f)
+                LineIcon("M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z", Z.Bright, 40.dp, 1.6f)
+                T("APPS", 16, Z.Bright, spacing = 3f)
             }
         }
     }
 }
-
-/** Dark map at night (headlights on) unless the user fixed a style. */
-fun mapNight(car: CarState) = when (Cfg.mapStyle.value) { "dark" -> true; "light" -> false; else -> car.night.value }
 
 /** Glass next-turn bar: live step from Google Maps / Waze while navigating, else the maps app. */
 @Composable
@@ -559,38 +552,18 @@ fun androidx.compose.foundation.layout.ColumnScope.ClimateTileBody(car: CarState
     car.outsideTemp.value?.let { T(it.replace("℃", "°") + " OUTSIDE", 18, Color(0xFFDDE1E6), spacing = 1f) }
 }
 
-/** Reads speed in its own scope so a GPS fix redraws only this overlay, not the whole home. */
+/** The live wireframe car with its real doors and turning wheels. Reads speed in its own scope. */
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.CarOverlay(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color, onTap: () -> Unit) {
-    // Parked: the live wireframe car with its real doors over a dark studio. Moving: the live map.
-    var forceMap by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    val parked = (fixState.value.speedKmh ?: 0) < 5
-    val anyOpen = car.driverDoor.value || car.passengerDoor.value || car.boot.value
-    val showCar = anyOpen || (parked && !forceMap && Cfg.parkedView.value == "car")
-    androidx.compose.animation.AnimatedVisibility(
-        visible = showCar,
-        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(400)),
-        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(400)),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        Box(Modifier.fillMaxSize().background(Color(0xFF07080A))) {
-            AmbientBackdrop(accent)
-            WireCar(car, { fixState.value.speedKmh ?: 0 }, accent, onTap, Modifier.fillMaxSize().padding(bottom = 140.dp, top = 10.dp))
-            val open = listOfNotNull(
-                if (car.driverDoor.value) "DRIVER DOOR" else null,
-                if (car.passengerDoor.value) "PASSENGER DOOR" else null,
-                if (car.boot.value) "BOOT" else null,
-            )
-            if (open.isNotEmpty()) T(open.joinToString(" · ") + " OPEN", 20, accent, spacing = 3f, weight = FontWeight.Medium,
-                modifier = Modifier.align(Alignment.TopStart).padding(36.dp))
-        }
-    }
-    if (parked && !anyOpen && Cfg.parkedView.value == "car") {
-        Box(
-            Modifier.align(Alignment.TopEnd).padding(24.dp).height(64.dp)
-                .glass(RoundedCornerShape(32.dp), 1.3f).clickable { forceMap = !forceMap }
-                .padding(horizontal = 26.dp),
-            contentAlignment = Alignment.Center,
-        ) { T(if (showCar) "MAP" else "CAR", 20, Z.Bright, spacing = 3f) }
+private fun androidx.compose.foundation.layout.BoxScope.CarCard(fixState: androidx.compose.runtime.State<Fix>, car: CarState, accent: Color, onTap: () -> Unit) {
+    WireCar(car, { fixState.value.speedKmh ?: 0 }, accent, onTap, Modifier.fillMaxSize().padding(top = 40.dp, bottom = 60.dp))
+    val open = listOfNotNull(
+        if (car.driverDoor.value) "DRIVER DOOR" else null,
+        if (car.passengerDoor.value) "PASSENGER DOOR" else null,
+        if (car.boot.value) "BOOT" else null,
+    )
+    Column(Modifier.align(Alignment.TopStart).padding(40.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        T(Cfg.carName.value.ifBlank { "370Z" }.uppercase(), 18, Color(0xFFDDE1E6), spacing = 4f)
+        if (open.isNotEmpty()) T(open.joinToString(" · ") + " OPEN", 20, accent, spacing = 3f, weight = FontWeight.Medium)
+        else T(if (car.live.value) "ALL CLOSED" else "WAITING FOR CAR DATA", 16, Color(0xFFA4A9B0), spacing = 3f)
     }
 }

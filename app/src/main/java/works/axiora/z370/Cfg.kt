@@ -24,11 +24,6 @@ object Cfg {
 
     // Home
     val leftTile = mutableStateOf("weather")    // weather | cabin | steering | doors
-    val parkedView = mutableStateOf("car")      // car | map
-
-    // Map
-    val mapStyle = mutableStateOf("auto")       // auto | dark | light
-    val mapZoom = mutableFloatStateOf(15.5f)
 
     // Units
     val mph = mutableStateOf(false)
@@ -57,9 +52,6 @@ object Cfg {
         glass.floatValue = p.getFloat("glass", 1f)
         glow.floatValue = p.getFloat("glow", 1f)
         leftTile.value = p.getString("leftTile", "weather")!!
-        parkedView.value = p.getString("parkedView", "car")!!
-        mapStyle.value = p.getString("mapStyle", "auto")!!
-        mapZoom.floatValue = p.getFloat("mapZoom", 15.5f)
         mph.value = p.getBoolean("mph", false)
         fahrenheit.value = p.getBoolean("fahrenheit", false)
         carName.value = p.getString("carName", "370Z")!!
