@@ -448,7 +448,9 @@ fun androidx.compose.foundation.layout.ColumnScope.FuelTileBody(car: CarState, a
         Spacer(Modifier.width(10.dp))
         T(if (Cfg.mph.value) "MI" else "KM", 20, Color(0xFFDDE1E6), spacing = 4f, modifier = Modifier.padding(bottom = 16.dp))
     }
-    T(if (pct != null) "RANGE · TANK $pct%" else "RANGE", 20, Color(0xFFDDE1E6), spacing = 2f)
+    // The box's fuel byte reads in litres (77 with a full tank: the 72 L tank plus the filler neck).
+    val litres = car.fuelRaw.value
+    T(if (pct != null) "TANK $pct% · ${litres} L" else "RANGE", 20, Color(0xFFDDE1E6), spacing = 2f)
     Bar((pct ?: 0) / 100f, if ((pct ?: 100) <= 12) Color(0xFFFF3B2F) else accent)
 }
 

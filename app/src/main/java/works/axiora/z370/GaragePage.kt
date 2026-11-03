@@ -123,7 +123,7 @@ fun GaragePage(accent: Color, car: CarState) {
                 }
                 Card(Modifier.fillMaxWidth(), "FUEL") {
                     val raw = car.fuelRaw.value
-                    T(car.fuelPct.value?.let { "Tank $it%" + (car.rangeKm.value?.let { r -> " · range $r km" } ?: "") } ?: "Waiting for car data", 28, Z.Bright, Condensed, FontWeight.Medium)
+                    T(car.fuelPct.value?.let { "Tank $it% · ${car.fuelRaw.value} L" + (car.rangeKm.value?.let { r -> " · range $r km" } ?: "") } ?: "Waiting for car data", 28, Z.Bright, Condensed, FontWeight.Medium)
                     T("Just filled up? Tap once so 100% matches your full tank.", 18, Muted)
                     GlassPill("TANK IS FULL NOW", accent) {
                         if (raw != null && raw > 20) {
