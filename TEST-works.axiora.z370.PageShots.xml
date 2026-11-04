@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="works.axiora.z370.PageShots" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-04T17:04:28" hostname="runnervmnwato" time="10.308">
+  <properties/>
+  <testcase name="garage" classname="works.axiora.z370.PageShots" time="8.566"/>
+  <testcase name="driveNumbers" classname="works.axiora.z370.PageShots" time="0.317"/>
+  <testcase name="home" classname="works.axiora.z370.PageShots" time="0.409"/>
+  <testcase name="drive" classname="works.axiora.z370.PageShots" time="0.294"/>
+  <testcase name="media" classname="works.axiora.z370.PageShots" time="0.288"/>
+  <testcase name="settings" classname="works.axiora.z370.PageShots" time="0.434"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

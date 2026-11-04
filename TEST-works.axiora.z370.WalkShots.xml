@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="works.axiora.z370.WalkShots" tests="13" skipped="0" failures="0" errors="0" timestamp="2026-11-04T17:04:39" hostname="runnervmnwato" time="56.445">
+  <properties/>
+  <testcase name="h_driveSweep" classname="works.axiora.z370.WalkShots" time="4.295"/>
+  <testcase name="a_home" classname="works.axiora.z370.WalkShots" time="4.488"/>
+  <testcase name="f_mint" classname="works.axiora.z370.WalkShots" time="4.427"/>
+  <testcase name="k_media" classname="works.axiora.z370.WalkShots" time="4.278"/>
+  <testcase name="i_driveNumbers" classname="works.axiora.z370.WalkShots" time="4.258"/>
+  <testcase name="e_ice" classname="works.axiora.z370.WalkShots" time="4.371"/>
+  <testcase name="l_garage" classname="works.axiora.z370.WalkShots" time="4.341"/>
+  <testcase name="g_violet" classname="works.axiora.z370.WalkShots" time="4.368"/>
+  <testcase name="d_homeNight" classname="works.axiora.z370.WalkShots" time="4.334"/>
+  <testcase name="m_settings" classname="works.axiora.z370.WalkShots" time="4.421"/>
+  <testcase name="c_homeBoot" classname="works.axiora.z370.WalkShots" time="4.325"/>
+  <testcase name="b_homeFuelDoor" classname="works.axiora.z370.WalkShots" time="4.328"/>
+  <testcase name="j_driveMinimal" classname="works.axiora.z370.WalkShots" time="4.211"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
