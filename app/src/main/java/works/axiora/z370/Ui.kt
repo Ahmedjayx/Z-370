@@ -180,7 +180,7 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                 // Android Auto: zlink, opened directly (its icon is hidden), unless you picked an app.
                 if (role == Role.CARPLAY && Prefs.rolePkg(ctx, Role.CARPLAY) == null && openAndroidAuto(ctx)) return@open
                 val app = resolved[role]
-                if (app == null || !launchApp(ctx, app.pkg)) {
+                if (app == null || !launchApp(ctx, app.id)) {
                     assignRole = role; drawer = true
                 }
             }
@@ -202,8 +202,8 @@ fun Root(homeSignal: Int, locationGranted: Boolean) {
                     onPick = { app ->
                         val r = assignRole
                         if (r != null) {
-                            Prefs.setRolePkg(ctx, r, app.pkg); roleTick++
-                        } else launchApp(ctx, app.pkg)
+                            Prefs.setRolePkg(ctx, r, app.id); roleTick++
+                        } else launchApp(ctx, app.id)
                         drawer = false; assignRole = null
                     },
                     onReset = {
@@ -273,7 +273,7 @@ fun Drawer(
             verticalArrangement = Arrangement.spacedBy(24.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            items(apps, key = { it.pkg }) { app ->
+            items(apps, key = { it.id }) { app ->
                 Column(
                     Modifier.clip(RoundedCornerShape(18.dp)).clickable { onPick(app) }.padding(vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

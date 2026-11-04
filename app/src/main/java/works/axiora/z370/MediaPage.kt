@@ -91,7 +91,7 @@ fun MediaPage(car: CarState, accent: Color, resolved: Map<Role, AppEntry?>, onRo
             val musicApp = resolved[Role.MUSIC]
             SourceCard("BLUETOOTH", "Phone audio", btTitle != null, accent, Modifier.weight(1f)) { BtControl.openBtMusic(ctx) }
             SourceCard("APP", musicApp?.label ?: "Choose in Settings", np != null, accent, Modifier.weight(1f)) {
-                if (musicApp != null) launchApp(ctx, musicApp.pkg) else onRole(Role.MUSIC)
+                if (musicApp != null) launchApp(ctx, musicApp.id) else onRole(Role.MUSIC)
             }
             SourceCard("ANDROID AUTO", if (Prefs.rolePkg(ctx, Role.CARPLAY) == null) "zlink" else resolved[Role.CARPLAY]?.label ?: "zlink", false, accent, Modifier.weight(1f)) { onRole(Role.CARPLAY) }
         }

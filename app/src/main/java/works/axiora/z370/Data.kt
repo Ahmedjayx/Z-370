@@ -220,19 +220,23 @@ fun rememberMedia(): MediaState {
 
 // ---------------------------------------------------------------- Apps
 
-data class AppEntry(val label: String, val pkg: String, val icon: ImageBitmap)
+data class AppEntry(val label: String, val pkg: String, val icon: ImageBitmap, val cls: String = "") {
+    /** One app can have several icons (zlink: Android Auto, CarPlay, HiCar), so entries are per activity. */
+    val id get() = if (cls.isEmpty()) pkg else "$pkg/$cls"
+}
 
 fun loadApps(ctx: Context): List<AppEntry> {
     val pm = ctx.packageManager
     val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
     return pm.queryIntentActivities(intent, 0)
         .filter { it.activityInfo.packageName != ctx.packageName }
-        .distinctBy { it.activityInfo.packageName }
+        .distinctBy { it.activityInfo.packageName + "/" + it.activityInfo.name }
         .map {
             AppEntry(
                 label = it.loadLabel(pm).toString(),
                 pkg = it.activityInfo.packageName,
                 icon = it.loadIcon(pm).toBitmap(128, 128).asImageBitmap(),
+                cls = it.activityInfo.name,
             )
         }
         .sortedBy { it.label.lowercase() }
@@ -244,6 +248,18 @@ fun loadApps(ctx: Context): List<AppEntry> {
  * its main page, before giving up.
  */
 fun openAndroidAuto(ctx: Context): Boolean {
+    // zlink's own Android Auto icon, found by its label or class name.
+    try {
+        val pm = ctx.packageManager
+        val acts = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setPackage("com.zjinnova.zlink"), 0)
+        val auto = acts.firstOrNull { it.loadLabel(pm).toString().contains("auto", true) && !it.loadLabel(pm).toString().contains("carplay", true) }
+            ?: acts.firstOrNull { it.activityInfo.name.endsWith("AutoActivity") && !it.activityInfo.name.contains("CarPlay") }
+        if (auto != null) {
+            ctx.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                .setClassName(auto.activityInfo.packageName, auto.activityInfo.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return true
+        }
+    } catch (_: Exception) {}
     val tries = listOf(
         Intent().setClassName("com.zjinnova.zlink", "com.zjinnova.zlink.features.launcher.AutoActivity"),
         Intent("zjinnova.android.intent.action.ZLINK_MAIN").setPackage("com.zjinnova.zlink"),
@@ -255,8 +271,11 @@ fun openAndroidAuto(ctx: Context): Boolean {
     return false
 }
 
-fun launchApp(ctx: Context, pkg: String): Boolean = try {
-    val i = ctx.packageManager.getLaunchIntentForPackage(pkg)
+fun launchApp(ctx: Context, id: String): Boolean = try {
+    val pkg = id.substringBefore('/')
+    val cls = id.substringAfter('/', "")
+    val i = if (cls.isNotEmpty()) Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setClassName(pkg, cls)
+    else ctx.packageManager.getLaunchIntentForPackage(pkg)
     if (i != null) {
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(i)
@@ -318,6 +337,7 @@ enum class Role(val label: String, val keywords: List<String>, val path: String)
 
 fun resolveRole(ctx: Context, role: Role, apps: List<AppEntry>): AppEntry? {
     val saved = Prefs.rolePkg(ctx, role)
+    apps.firstOrNull { it.id == saved }?.let { return it }
     apps.firstOrNull { it.pkg == saved }?.let { return it }
     for (k in role.keywords) {
         apps.firstOrNull { it.pkg.lowercase().contains(k) || it.label.lowercase().contains(k) }?.let { return it }
